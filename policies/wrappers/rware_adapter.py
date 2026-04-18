@@ -84,13 +84,11 @@ class RwareAdapter:
         obs = self._stack_obs(obs_tuple)
         reward = np.asarray(rewards, dtype=np.float32)
         episode_done = bool(done) or bool(truncated)
-        # RWARE has no per-agent death; agents are "alive" until the episode
-        # terminates. On a global done we flip everyone off so GAE sees the
-        # final state correctly, but the alive mask returned here reflects
-        # the state *after* the step: still alive unless the episode ended.
-        alive = np.ones(self.spec.n_agents, dtype=bool) if not episode_done else (
-            np.ones(self.spec.n_agents, dtype=bool)
-        )
+        # RWARE has no per-agent termination; agents are "alive" for the entire
+        # episode. Episode-level termination is signalled via the `done` return
+        # value. UnifiedMARLEnv handles the "force done when all agents dead"
+        # corner case for envs that DO have per-agent termination.
+        alive = np.ones(self.spec.n_agents, dtype=bool)
         avail = self._available_actions()
         return obs, avail, alive, reward, episode_done, info
 

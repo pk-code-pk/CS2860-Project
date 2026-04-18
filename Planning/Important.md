@@ -20,6 +20,12 @@ envs/
   sample_envs.py          Pre-existing random-policy demo (untouched)
 ```
 
+## Runtime deps
+
+- `gymnasium`, `multigrid`, `rware` for the envs.
+- `torch` for the MAPPO networks and optimizers.
+- `tensorboard` for `RunLogger`'s TB event files (CSV works without it).
+
 ## Unified interface (the contract)
 
 Reset returns a dict:

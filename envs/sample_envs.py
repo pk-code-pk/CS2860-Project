@@ -135,6 +135,8 @@ def run_random_rollout(
     truncates (multigrid) or the episode ends (rware).
     """
     env.reset(seed=seed)
+    if seed is not None:
+        env.action_space.seed(seed)
     steps = 0
     try:
         while steps < max_steps:
@@ -157,7 +159,12 @@ def main() -> None:
         help="Registered env id (rware-* or MultiGrid-*)",
     )
     parser.add_argument("--steps", type=int, default=1_000, help="Total environment steps")
-    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Seeds both env.reset and env.action_space for reproducible rollouts.",
+    )
     parser.add_argument(
         "--render-mode",
         default="human",

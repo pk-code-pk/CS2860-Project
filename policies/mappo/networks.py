@@ -230,6 +230,12 @@ def evaluate_actions(
     msg_dist = Categorical(logits=msg_logits)
     logp_env = env_dist.log_prob(env_actions)
     logp_msg = msg_dist.log_prob(msg_actions)
+    # Defensive clamp: if a stored action ever lands on a masked logit (rare
+    # but possible if the mask changes between rollout and update), the raw
+    # log_prob would be ~-1e9 from the masked logit and dominate the loss.
+    # Clamp to a tame lower bound; alive-masking still zeros dead rows.
+    logp_env = logp_env.clamp(min=-50.0)
+    logp_msg = logp_msg.clamp(min=-50.0)
     entropy = env_dist.entropy() + msg_dist.entropy()
 
     alive_f = alive.to(logp_env.dtype)

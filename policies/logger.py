@@ -35,9 +35,8 @@ class RunLogger:
         self.run_dir.mkdir(parents=True, exist_ok=True)
 
         self._csv_path = self.run_dir / "metrics.csv"
-        self._csv_file = None
-        self._csv_writer = None
-        self._fieldnames: list[str] | None = None
+        self._fieldnames: list[str] = ["step"]
+        self._rows: list[dict[str, Any]] = []
 
         self._tb = None
         if use_tensorboard:
@@ -64,38 +63,34 @@ class RunLogger:
                 safe[k] = repr(v)
         (self.run_dir / "config.json").write_text(json.dumps(safe, indent=2))
 
-    def _open_csv(self, fieldnames: list[str]) -> None:
-        self._csv_file = self._csv_path.open("w", newline="")
-        self._fieldnames = fieldnames
-        self._csv_writer = csv.DictWriter(self._csv_file, fieldnames=fieldnames)
-        self._csv_writer.writeheader()
+    def _flush_csv(self) -> None:
+        # Rewrite the entire CSV from scratch so that columns added mid-run
+        # show up with empty values for prior rows. Training runs only emit
+        # O(hundreds) of rows so this is cheap.
+        with self._csv_path.open("w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self._fieldnames)
+            writer.writeheader()
+            writer.writerows(self._rows)
 
     # ------------------------------------------------------------------
 
     def log_scalars(self, step: int, metrics: Mapping[str, float]) -> None:
-        row = {"step": int(step), **{k: float(v) for k, v in metrics.items()}}
-        if self._csv_writer is None:
-            self._open_csv(list(row.keys()))
-        else:
-            # Add any new keys as empty columns (rare – keep schema stable).
-            assert self._fieldnames is not None
-            missing = [k for k in row.keys() if k not in self._fieldnames]
-            if missing:
-                # CSV schema is append-only; just ignore new keys silently for
-                # simplicity. TB still sees everything.
-                row = {k: v for k, v in row.items() if k in self._fieldnames}
-        self._csv_writer.writerow(row)
-        self._csv_file.flush()
+        row: dict[str, Any] = {"step": int(step), **{k: float(v) for k, v in metrics.items()}}
+        for k in row.keys():
+            if k not in self._fieldnames:
+                self._fieldnames.append(k)
+        self._rows.append(row)
+        self._flush_csv()
 
         if self._tb is not None:
             for k, v in metrics.items():
                 self._tb.add_scalar(k, float(v), int(step))
 
     def close(self) -> None:
-        if self._csv_file is not None:
-            self._csv_file.close()
-            self._csv_file = None
-            self._csv_writer = None
+        # Final rewrite is a no-op if no rows were added since the last
+        # log_scalars call, but it's cheap and ensures the file is flushed.
+        if self._rows:
+            self._flush_csv()
         if self._tb is not None:
             self._tb.flush()
             self._tb.close()

@@ -33,16 +33,20 @@
 - Smoke tests: both envs train without errors; sensible loss/entropy/kl
   values.
 
+### Phase 3 – Logging + ablations
+- `policies/logger.py`: `RunLogger` writes per-update CSV rows and
+  TensorBoard event files (episode return, entropy, KL, value loss,
+  wall-clock SPS); `train.py` constructs it and logs each update.
+- `--no-comm` flag in `train.py` collapses the message channel to
+  `n_msg_tokens=1` for a no-communication ablation against the comms
+  baseline.
+
 ## Next up
 
 ### Phase 3 – Longer training + logging
-- Wire TensorBoard / CSV logging (episode return, entropy, KL, value loss,
-  wall-clock SPS) into `train.py`.
 - Run full-length experiments on `rware-tiny-2ag-v2`, `rware-small-4ag-v2`
-  and on `MultiGrid-Empty-Random-8x8-v0` with 2+ agents to get a baseline
+  and on `MultiGrid-Empty-Random-6x6-v0` with 2+ agents to get a baseline
   learning curve for the flat MAPPO + comms model.
-- Add a no-communication ablation (`n_msg_tokens=1`) to verify the
-  communication channel actually helps.
 
 ### Phase 4 – Hierarchical extension (future)
 - Introduce an option / manager layer that consumes the same communication

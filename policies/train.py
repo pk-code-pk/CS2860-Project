@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import time
 from dataclasses import asdict
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -182,6 +183,7 @@ def main() -> None:
                 logger.log_scalars(total_steps, scalars)
 
         if args.save is not None:
+            Path(args.save).parent.mkdir(parents=True, exist_ok=True)
             torch.save(trainer.state_dict(), args.save)
             print(f"[ckpt] saved to {args.save}")
     finally:

@@ -1,4 +1,6 @@
-.venv/ 
-/envs/__pycache__
+.venv/
+__pycache__/
+*.pyc
+*.pyo
 logs/
 runs/

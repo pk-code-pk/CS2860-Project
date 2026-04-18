@@ -96,6 +96,11 @@ class UnifiedMARLEnv:
         self.adapter = adapter
         self.spec = adapter.spec
         self.n_msg_tokens = int(n_msg_tokens)
+        if self.n_msg_tokens < 1:
+            raise ValueError(
+                f"n_msg_tokens must be >= 1 (got {self.n_msg_tokens}). "
+                "Use n_msg_tokens=1 to disable the comm channel via the --no-comm ablation."
+            )
         self.zero_obs_on_death = bool(zero_obs_on_death)
 
         self._alive = np.ones(self.spec.n_agents, dtype=bool)
