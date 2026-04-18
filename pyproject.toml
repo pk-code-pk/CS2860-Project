@@ -9,4 +9,6 @@ dependencies = [
     "multigrid>=0.1.0",
     "rware>=2.0.0",
     "six>=1.16.0",
+    "tensorboard>=2.20.0",
+    "torch>=2.11.0",
 ]
