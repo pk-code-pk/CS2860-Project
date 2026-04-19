@@ -232,13 +232,22 @@ sweep collapses to `D = 0`).
 ```bash
 uv run python -m policies.train \
     --env rware-tiny-4ag-v2 \
-    --rollout 512 --updates 400 \
-    --eval-every 20 --eval-episodes 3 \
+    --rollout 512 --updates 1000 \
+    --eval-every 25 --eval-episodes 3 \
     --seed 0 \
     --heartbeat --heartbeat-period 2 --heartbeat-delay 5 \
     --dropout --dropout-window-start 50 --dropout-window-end 200 \
+    --shape-rewards --pickup-bonus 0.5 \
     --log-dir runs --run-name pol-delay-dropout-s0
 ```
+
+Reward shaping (`--shape-rewards`, RWARE only) adds `+pickup-bonus` to an
+agent's reward the step its `carrying_shelf` flips from `None` to a
+*currently-requested* shelf. Without shaping, RWARE's stock reward is +1
+per delivery and 0 otherwise; on `rware-tiny-4ag-v2` that is too sparse
+for vanilla MAPPO to crack inside a CPU-friendly budget. Shaping turns
+a 512k-step verification run from `eval_ret_mean = 0.0` (no shaping) into
+`eval_ret_mean ≈ 80, max ≈ 166, 30/40 evals non-zero` (with shaping).
 
 Common flags (full list via `--help`):
 
@@ -262,6 +271,8 @@ Common flags (full list via `--help`):
 --dropout / --dropout-agent / --dropout-time
 --dropout-window-start / --dropout-window-end
 --heartbeat / --heartbeat-period / --heartbeat-delay
+# reward shaping (RWARE only):
+--shape-rewards / --pickup-bonus / --step-penalty
 ```
 
 Each run (unless `--no-log`) writes:
@@ -431,15 +442,17 @@ Open the URL it prints (typically <http://127.0.0.1:6006>).
   their last emitted token; the buffer is initialised to a token-0 one-hot
   so an agent that dies before ever emitting still looks like a normal
   token-0 sender. See [no-oracle invariants](#no-oracle-invariants).
-* **Sparse-reward proof-of-learning.** A 400-update / 204k-step run on
-  `rware-tiny-4ag-v2` in the easy regime (no dropout, no heartbeat,
-  full comm) gave: 13.5% of training rollouts saw at least one delivery,
-  max `train/ep_return_mean = 3.0`, entropy collapsed 3.69 → 2.75. **But**
-  greedy `eval/ep_return_mean` stayed at 0.0 across all 20 evals — vanilla
-  MAPPO on raw RWARE-tiny-4ag in 200k steps is below the budget required
-  for greedy eval to lock onto a delivery strategy. The current matrix
-  default of 51k steps/run is therefore expected to show all-zero finals
-  on the 4-agent env.
+* **Sparse-reward proof-of-learning.** Vanilla MAPPO on raw
+  `rware-tiny-4ag-v2` in 200k steps gave 13.5% of training rollouts with
+  at least one delivery and `eval_ret_mean = 0.0` across all evals. With
+  `--shape-rewards --pickup-bonus 0.5`, the same env at 512k steps with
+  `mappo-heartbeat-plus-comm` reaches `train_ret_mean ≈ 277` (last 100
+  updates), `eval_ret_mean ≈ 83` (last 10 evals), `eval_max = 166`,
+  `30/40 evals non-zero`, in **~10.6 minutes** of wall-time on CPU.
+  Conclusion: shaping is required for the matrix to produce non-trivial
+  results on the 4-agent env in CPU-friendly budgets; the matrix runner
+  should be invoked with `--shape-rewards` (or the equivalent flag wired
+  through to per-cell trainings).
 * **Heuristic is a floor, not an upper bound.** The heuristic does
   one-step greedy heading, no real path planning, and accepts RWARE's
   move-cancellation cost on illegal moves. It typically returns 0

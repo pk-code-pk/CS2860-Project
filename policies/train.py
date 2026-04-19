@@ -84,6 +84,18 @@ def _parse_args() -> argparse.Namespace:
                    help="Emit a heartbeat every N steps (>=1).")
     p.add_argument("--heartbeat-delay", type=int, default=0,
                    help="Heartbeats arrive N steps after they were produced.")
+
+    # --- Optional reward shaping (RWARE only) ---
+    p.add_argument("--shape-rewards", action="store_true",
+                   help="(RWARE only) add a small bonus on requested-shelf "
+                        "pickup events to densify the otherwise sparse "
+                        "delivery-only reward.")
+    p.add_argument("--pickup-bonus", type=float, default=0.5,
+                   help="Per-agent reward added on a False->True pickup of a "
+                        "currently-requested shelf when --shape-rewards is on.")
+    p.add_argument("--step-penalty", type=float, default=0.0,
+                   help="Per-step reward subtracted from every agent when "
+                        "--shape-rewards is on (0 disables).")
     return p.parse_args()
 
 
@@ -111,12 +123,21 @@ def main() -> None:
         delay=max(0, args.heartbeat_delay),
     )
 
+    adapter_kwargs: dict = {}
+    if args.env.startswith("rware-") and args.shape_rewards:
+        adapter_kwargs.update(
+            shape_rewards=True,
+            pickup_bonus=args.pickup_bonus,
+            step_penalty=args.step_penalty,
+        )
+
     env = make_unified_env(
         args.env,
         n_agents=args.n_agents,
         n_msg_tokens=n_msg_tokens,
         dropout_cfg=dropout_cfg,
         heartbeat_cfg=heartbeat_cfg,
+        **adapter_kwargs,
     )
     spec = env.spec
     print(f"[env] {spec}  (n_msg_tokens={n_msg_tokens})")
