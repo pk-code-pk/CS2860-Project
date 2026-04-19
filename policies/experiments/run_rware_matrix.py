@@ -17,16 +17,17 @@ so the analysis/aggregation script can recover the (method, regime, delay,
 seed) tuple just by parsing the directory name. All runs land under one
 log root (default: ``runs/exp_matrix/``).
 
-Designed against the *future* mechanism-branch CLI:
+Mechanism CLI flags forwarded to ``policies.train`` /
+``policies.baselines.rware_heuristic`` (both consume them via the
+``DropoutConfig`` / ``HeartbeatConfig`` constructors in
+``policies.wrappers``):
 
     --heartbeat / --heartbeat-period N / --heartbeat-delay D
     --dropout / --dropout-agent A / --dropout-time T
     --dropout-window-start S / --dropout-window-end E
 
-Until that branch lands, the heuristic CLI silently degrades these to a
-plain rollout (with a clear warning), and ``policies.train`` will simply
-reject the unknown CLI flags – use ``--dry-run`` to preview commands
-without executing, then re-run for real once the mechanism branch merges.
+Use ``--dry-run`` to preview the planned subprocess commands without
+launching them.
 
 Usage examples
 --------------
