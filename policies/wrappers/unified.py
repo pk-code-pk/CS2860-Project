@@ -32,6 +32,13 @@ The wrapper keeps the **true** alive mask for internal masking / NOOP
 substitution / reward zeroing. The actor-visible obs pathway only carries
 heartbeat-derived freshness, never an oracle teammate-death signal.
 
+To preserve that ambiguity in the **message** channel as well, dead agents
+do NOT emit an all-zero message vector (that would be a perfect dropout
+oracle). Instead, dead agents *echo* their last emitted one-hot, and the
+``_last_messages`` buffer is initialised to a valid token-0 one-hot at
+reset so that an agent which dies before it ever emits still looks like
+a normal sender of token 0.
+
 Stable debug keys always added to ``info`` (zeros/defaults when the
 mechanism is off):
 
@@ -205,9 +212,14 @@ class UnifiedMARLEnv:
         self.spec = replace(adapter.spec, obs_dim=eff_obs_dim)
 
         self._alive = np.ones(self._n_agents, dtype=bool)
+        # Initialize the last-emitted-message buffer to a valid one-hot
+        # (token 0) so that an agent which dies *before* emitting any
+        # message still echoes a vector that looks identical to a live
+        # agent that happened to send token 0 - i.e. no zero-row oracle.
         self._last_messages = np.zeros(
             (self._n_agents, self.n_msg_tokens), dtype=np.float32
         )
+        self._last_messages[:, 0] = 1.0
 
         # Per-episode mutable state.
         self._t = 0
@@ -242,9 +254,12 @@ class UnifiedMARLEnv:
     def reset(self, seed: int | None = None) -> dict[str, np.ndarray]:
         obs, avail, alive, info = self.adapter.reset(seed=seed)
         self._alive = alive.astype(bool).copy()
+        # See __init__: default to token-0 one-hots so newly-dead agents
+        # echo a valid-looking message rather than an all-zero "oracle" row.
         self._last_messages = np.zeros(
             (self._n_agents, self.n_msg_tokens), dtype=np.float32
         )
+        self._last_messages[:, 0] = 1.0
         self._t = 0
         self._tracker.reset()
 
@@ -298,12 +313,16 @@ class UnifiedMARLEnv:
         new_alive = alive_pre_step & alive_after.astype(bool)
         obs = self._apply_death_mask_to_obs(obs, new_alive)
 
-        # Messages for the next step: one-hot, zero rows for newly-dead agents.
-        messages = np.zeros(
-            (self._n_agents, self.n_msg_tokens), dtype=np.float32
-        )
+        # Messages for the next step: live agents emit a fresh one-hot; dead
+        # agents *echo* their last emitted message so the receiver cannot
+        # detect death just by looking at the message vector (dead-row =
+        # all-zeros would be a perfect dropout oracle, which would defeat
+        # the central "stale vs gone" ambiguity that the heartbeat channel
+        # is supposed to be the only signal for).
+        messages = self._last_messages.copy()
         alive_rows = np.where(new_alive)[0]
         tokens = np.clip(msg_tokens[alive_rows], 0, self.n_msg_tokens - 1)
+        messages[alive_rows] = 0.0
         messages[alive_rows, tokens] = 1.0
 
         # Heartbeat: emissions come from agents who were alive AT THE START of
