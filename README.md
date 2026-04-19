@@ -14,6 +14,14 @@ version: wrapper-level dropout/heartbeat mechanism, all four study methods,
 the experiment matrix runner, the analysis/plot pipeline, and the demo
 rollout (with optional pyglet window).
 
+> **Looking for the research overview?** Read [`OVERVIEW.md`](OVERVIEW.md).
+> It explains the scientific question, the mechanism, the four
+> methods/regimes, the pooled v3 data we already have, and the
+> production-matrix plan for the final paper. This README is the
+> CLI / commands reference; `OVERVIEW.md` is the research-and-paper
+> companion. For per-experiment provenance and "read these numbers
+> carefully" caveats see [`matrix_results/README.md`](matrix_results/README.md).
+
 ---
 
 ## Table of contents
