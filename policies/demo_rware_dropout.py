@@ -159,7 +159,21 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--dropout-window-end", type=int, default=None)
     p.add_argument("--print-window", type=int, default=8,
                    help="Print this many steps before+after the dropout moment.")
+    p.add_argument("--render", action="store_true",
+                   help="Open the RWARE pyglet window and visualise each step.")
+    p.add_argument("--render-pause", type=float, default=0.15,
+                   help="Sleep this many seconds between rendered steps (use a "
+                        "larger value to slow the visualisation down).")
     return p.parse_args()
+
+
+def _render_env(env) -> None:
+    """Best-effort call into the underlying RWARE pyglet renderer."""
+    try:
+        inner = env.adapter._env.unwrapped
+        inner.render(mode="human")
+    except Exception as exc:
+        print(f"[demo] render failed: {exc}")
 
 
 def _make_env(args: argparse.Namespace, n_msg_tokens: int):
@@ -210,11 +224,22 @@ def main() -> None:
         f"[demo] backend={backend}  max_steps={args.max_steps}  "
         f"dropout_agent={args.dropout_agent}  dropout_time={args.dropout_time}"
     )
+    if args.render:
+        print(
+            f"[demo] rendering with the RWARE pyglet window "
+            f"(pause={args.render_pause}s/step). Close the window to exit early."
+        )
+        _render_env(env)
 
+    import time as _time
     for t in range(args.max_steps):
         joint, msg_tokens = act(state)
         out = env.step(joint)
         cum_return += float(np.asarray(out["reward"]).sum())
+        if args.render:
+            _render_env(env)
+            if args.render_pause > 0:
+                _time.sleep(args.render_pause)
 
         info = out.get("info", {}) or {}
         true_alive = np.asarray(
