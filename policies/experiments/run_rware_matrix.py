@@ -812,6 +812,16 @@ def _parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    # Force line-buffered stdout so [matrix] / [start] / [done] lines flush
+    # immediately when stdout is redirected to a file (e.g. backgrounded
+    # via nohup / `&`). Without this, Python block-buffers stdout in
+    # non-tty mode and the runner appears silent for minutes at a time
+    # even though it's working fine.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
+
     args = _parse_args()
     if args.production_eval:
         args.eval_every = 25

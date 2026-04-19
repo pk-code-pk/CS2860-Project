@@ -408,7 +408,7 @@ uv run python -m policies.experiments.run_rware_matrix \
     --seeds 0 1 2 \
     --updates 1000 --rollout 512 \
     --shape-rewards \
-    --dropout-mode window --dropout-window-start 200 --dropout-window-end 350 \
+    --dropout-window-start 200 --dropout-window-end 350 \
     --log-dir runs/exp_pilot_v4 \
     --max-parallel 3 --threads-per-cell 1 \
     --production-eval
@@ -895,5 +895,6 @@ to dig:
 | Cross-pilot compare           | `policies/analysis/compare_pilots.py`      |
 | Heartbeat-dynamics diagnostic | `policies/analysis/heartbeat_dynamics.py`  |
 | Verifier                      | `policies/analysis/verify_dashboard.py`    |
+| Cross-lab pooler              | `policies/analysis/pool_runs.py`           |
 | Mechanism unit tests          | `policies/tests/test_unified_mechanism.py` |
 | Pooled committed data         | `matrix_results/exp_pilot_v3/`             |

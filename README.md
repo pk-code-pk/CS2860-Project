@@ -351,7 +351,7 @@ uv run python -m policies.experiments.run_rware_matrix \
     --delays 30 --seeds 0 1 2 \
     --updates 1000 --rollout 512 \
     --shape-rewards \
-    --dropout-mode window --dropout-window-start 200 --dropout-window-end 350 \
+    --dropout-window-start 200 --dropout-window-end 350 \
     --log-dir runs/exp_pilot_v4 \
     --max-parallel 3 --threads-per-cell 1 \
     --production-eval
@@ -391,6 +391,51 @@ Ctrl+C in a parallel run is handled cleanly: the matrix runner sends
 `SIGTERM` to all in-flight children, waits 10s for them to exit, then
 escalates to `SIGKILL`. A second Ctrl+C escalates to `SIGKILL`
 immediately. No queued cells are launched after the first signal.
+
+### Cross-lab parallel: split seeds across two laptops, then pool
+
+Because each per-cell directory is named
+`{method}__{regime}__d{delay}__s{seed}/`, two labs running disjoint
+seed sets cannot collide on disk. The clean workflow is:
+
+1. Both labs run the **identical** matrix command, differing **only**
+   in `--seeds` (e.g. PK runs `--seeds 0 1 2`, Sam runs
+   `--seeds 3 4 5`). Same `--log-dir runs/<pilot>` on both sides.
+2. Each lab `git push`es their slice when done.
+3. On either machine: `git pull` the other slice (it lands at a
+   different absolute path, e.g. `runs/<pilot>` vs the other lab's
+   checkout), then pool:
+
+   ```bash
+   uv run python -m policies.analysis.pool_runs \
+       --srcs runs/<pilot> /path/to/other_lab/runs/<pilot> \
+       --out runs/<pilot>_pooled
+   ```
+
+`pool_runs` enforces hard checks before copying anything:
+
+- **Refuses to pool overlapping seeds** (would shadow one lab's data).
+- **Refuses to pool runs with mismatched critical config** (env,
+  methods, regimes, delays, updates, rollout, eval-episodes,
+  shape-rewards, dropout-window-{start,end}, ...). Pass
+  `--allow-config-mismatch` only if you intentionally want this; a
+  warning will be recorded in `pooled_manifest.json`.
+- Writes a `pooled_manifest.json` in the destination so downstream
+  readers can answer "which cell came from which lab?".
+
+The pooled directory drops straight into all the existing analysis
+tools (`pilot_dashboard`, `compare_pilots`, `aggregate`, ...).
+
+For the **320-cell production matrix**, the seed split is:
+
+| | seeds | cells | est. wall-clock (3-way parallel) |
+|---|---|---|---|
+| PK  | 0–4 | 160 | ~5h |
+| Sam | 5–9 | 160 | ~5h |
+| **pooled** | 0–9 | **320** | **~5h total** (parallel across labs) |
+
+vs ~10h if either lab ran the full 320 cells alone, and ~20h
+sequential.
 
 ---
 
