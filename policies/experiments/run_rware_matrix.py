@@ -144,6 +144,8 @@ def _build_train_cmd(
     save_dir: str | None,
     dropout_agent: int,
     dropout_time: int,
+    dropout_window_start: int | None,
+    dropout_window_end: int | None,
     heartbeat_period: int,
     shape_rewards: bool,
     pickup_bonus: float,
@@ -187,11 +189,24 @@ def _build_train_cmd(
 
     if regime.has_dropout:
         cmd.append("--dropout")
-        cmd.extend(["--dropout-agent", str(dropout_agent)])
-        cmd.extend(["--dropout-time", str(dropout_time)])
-        used["dropout"] = True
-        used["dropout_agent"] = dropout_agent
-        used["dropout_time"] = dropout_time
+        if dropout_window_start is not None and dropout_window_end is not None:
+            # Window mode: random agent + random time inside [start, end), drawn
+            # per-episode by the wrapper using the reset seed. Mutually
+            # exclusive with fixed (--dropout-agent / --dropout-time) mode in
+            # DropoutConfig.__post_init__, so do NOT also send those.
+            cmd.extend(["--dropout-window-start", str(dropout_window_start)])
+            cmd.extend(["--dropout-window-end", str(dropout_window_end)])
+            used["dropout"] = True
+            used["dropout_mode"] = "window"
+            used["dropout_window_start"] = dropout_window_start
+            used["dropout_window_end"] = dropout_window_end
+        else:
+            cmd.extend(["--dropout-agent", str(dropout_agent)])
+            cmd.extend(["--dropout-time", str(dropout_time)])
+            used["dropout"] = True
+            used["dropout_mode"] = "fixed"
+            used["dropout_agent"] = dropout_agent
+            used["dropout_time"] = dropout_time
 
     if shape_rewards:
         cmd.append("--shape-rewards")
@@ -224,6 +239,8 @@ def _build_heuristic_cmd(
     stale_threshold: int,
     dropout_agent: int,
     dropout_time: int,
+    dropout_window_start: int | None,
+    dropout_window_end: int | None,
     heartbeat_period: int,
 ) -> tuple[list[str], dict[str, Any]]:
     cmd: list[str] = [
@@ -258,11 +275,20 @@ def _build_heuristic_cmd(
             used["heartbeat_delay"] = delay
     if regime.has_dropout:
         cmd.append("--dropout")
-        cmd.extend(["--dropout-agent", str(dropout_agent)])
-        cmd.extend(["--dropout-time", str(dropout_time)])
-        used["dropout"] = True
-        used["dropout_agent"] = dropout_agent
-        used["dropout_time"] = dropout_time
+        if dropout_window_start is not None and dropout_window_end is not None:
+            cmd.extend(["--dropout-window-start", str(dropout_window_start)])
+            cmd.extend(["--dropout-window-end", str(dropout_window_end)])
+            used["dropout"] = True
+            used["dropout_mode"] = "window"
+            used["dropout_window_start"] = dropout_window_start
+            used["dropout_window_end"] = dropout_window_end
+        else:
+            cmd.extend(["--dropout-agent", str(dropout_agent)])
+            cmd.extend(["--dropout-time", str(dropout_time)])
+            used["dropout"] = True
+            used["dropout_mode"] = "fixed"
+            used["dropout_agent"] = dropout_agent
+            used["dropout_time"] = dropout_time
     return cmd, used
 
 
@@ -337,6 +363,8 @@ def build_plans(
                             save_dir=args.save_dir,
                             dropout_agent=args.dropout_agent,
                             dropout_time=args.dropout_time,
+                            dropout_window_start=args.dropout_window_start,
+                            dropout_window_end=args.dropout_window_end,
                             heartbeat_period=args.heartbeat_period,
                             shape_rewards=args.shape_rewards,
                             pickup_bonus=args.pickup_bonus,
@@ -357,6 +385,8 @@ def build_plans(
                             stale_threshold=args.stale_threshold,
                             dropout_agent=args.dropout_agent,
                             dropout_time=args.dropout_time,
+                            dropout_window_start=args.dropout_window_start,
+                            dropout_window_end=args.dropout_window_end,
                             heartbeat_period=args.heartbeat_period,
                         )
                     else:
@@ -476,8 +506,21 @@ def _parse_args() -> argparse.Namespace:
 
     # Heartbeat / dropout knobs (forwarded to wrapper)
     p.add_argument("--heartbeat-period", type=int, default=1)
+    # Fixed-mode dropout (used iff window flags are NOT both supplied).
     p.add_argument("--dropout-agent", type=int, default=0)
     p.add_argument("--dropout-time", type=int, default=100)
+    # Window-mode dropout: random agent + random time in [start, end), drawn
+    # per-episode by the wrapper using the reset seed. Mutually exclusive
+    # with fixed mode in DropoutConfig (enforced wrapper-side); when both
+    # window flags are set, the matrix runner forwards window flags only.
+    p.add_argument("--dropout-window-start", type=int, default=None,
+                   help="Lower bound (inclusive) of the per-episode dropout "
+                        "step window. Must be set together with --dropout-"
+                        "window-end to enable window mode.")
+    p.add_argument("--dropout-window-end", type=int, default=None,
+                   help="Upper bound (exclusive) of the per-episode dropout "
+                        "step window. Must be set together with --dropout-"
+                        "window-start to enable window mode.")
 
     # Reward shaping (forwarded to MAPPO trainings only; heuristic doesn't learn).
     p.add_argument("--shape-rewards", action="store_true",
