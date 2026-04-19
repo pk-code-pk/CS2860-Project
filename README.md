@@ -333,6 +333,65 @@ for the heuristic method) per cell, then writes everything under
 `<log-dir>/<run-name>/` with run names like
 `mappo-heartbeat-plus-comm__delay-dropout__d5__s2`.
 
+### Parallel dispatch (`--max-parallel`, `--threads-per-cell`)
+
+By default cells run **one at a time**. Pass `--max-parallel N` to run up to
+N cells concurrently as separate subprocesses. Each child has its BLAS /
+OpenMP / Accelerate thread pool capped via `--threads-per-cell K`
+(default 1) so parallel children don't oversubscribe the cores -- without
+this cap, every Python child spawns a thread pool sized to the physical
+core count and N children fight each other.
+
+Recommended sweet spot on an 8-core Apple Silicon laptop:
+
+```bash
+uv run python -m policies.experiments.run_rware_matrix \
+    --methods mappo-heartbeat-only mappo-heartbeat-plus-comm \
+    --regimes delay-only delay-dropout \
+    --delays 30 --seeds 0 1 2 \
+    --updates 1000 --rollout 512 \
+    --shape-rewards \
+    --dropout-mode window --dropout-window-start 200 --dropout-window-end 350 \
+    --log-dir runs/exp_pilot_v4 \
+    --max-parallel 3 --threads-per-cell 1 \
+    --production-eval
+```
+
+What you'll see while it runs:
+
+```
+[start] mappo-heartbeat-only__delay-only__d30__s0  pid=23912  in_flight=1/3  queued=11  done=0
+[start] mappo-heartbeat-only__delay-only__d30__s1  pid=23913  in_flight=2/3  queued=10  done=0
+[start] mappo-heartbeat-only__delay-only__d30__s2  pid=23914  in_flight=3/3  queued=9   done=0
+[done ] mappo-heartbeat-only__delay-only__d30__s0  exit=0 (ok )  cell_elapsed= 612.4s  wall= 612.4s  ...
+[start] mappo-heartbeat-only__delay-dropout__d30__s0  pid=24205  in_flight=3/3  queued=8   done=1
+...
+```
+
+Per-cell stdout still lands in `<log-dir>/<run-name>/stdout.log` (drop
+`--no-capture` if you want clean per-cell logs in parallel mode).
+
+### Production-grade eval (`--production-eval`)
+
+The defaults `--eval-every 10 --eval-episodes 3` are intentionally
+smoke-test-y. For a research-grade run that should produce publishable
+curves, pass `--production-eval` to override these to:
+
+* `--eval-every 25` (one greedy eval every 25 PPO updates)
+* `--eval-episodes 30` (30 episodes per eval, ~10x less noisy than 3)
+
+Equivalent to setting both flags explicitly. We saw in the v3 pilot
+that `eval-episodes 3` was the dominant source of cell-to-cell noise
+(see `matrix_results/README.md`); 30 episodes brings the eval SEM down
+to roughly the seed-to-seed SEM, which is the right ratio.
+
+### Ctrl+C handling
+
+Ctrl+C in a parallel run is handled cleanly: the matrix runner sends
+`SIGTERM` to all in-flight children, waits 10s for them to exit, then
+escalates to `SIGKILL`. A second Ctrl+C escalates to `SIGKILL`
+immediately. No queued cells are launched after the first signal.
+
 ---
 
 ## Aggregation and plots

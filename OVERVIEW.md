@@ -408,10 +408,10 @@ uv run python -m policies.experiments.run_rware_matrix \
     --seeds 0 1 2 \
     --updates 1000 --rollout 512 \
     --shape-rewards \
-    --eval-every 25 --eval-episodes 3 \
     --dropout-mode window --dropout-window-start 200 --dropout-window-end 350 \
     --log-dir runs/exp_pilot_v4 \
-    --no-capture
+    --max-parallel 3 --threads-per-cell 1 \
+    --production-eval
 ```
 
 Useful flags:
@@ -419,9 +419,24 @@ Useful flags:
 - `--dry-run` prints the planned commands without executing.
 - `--no-capture` streams trainer stdout to your terminal (otherwise
   it's silently captured to `stdout.log` per cell).
+- `--max-parallel N` runs up to N cells concurrently as separate
+  subprocesses. Default 1 (sequential, byte-equivalent to the
+  original behaviour). On an 8-core M-series laptop, N=3 is the
+  measured sweet spot.
+- `--threads-per-cell K` caps OMP / MKL / Accelerate threads per
+  child to K (default 1). Always pair with `--max-parallel > 1` to
+  avoid BLAS oversubscription.
+- `--production-eval` overrides `--eval-every` and `--eval-episodes`
+  to research-grade values (25 / 30) so eval noise stops dominating
+  per-cell signal. Equivalent to setting both flags explicitly.
 - `--methods heuristic ...` will auto-pick `heuristic-episodes` /
   `heuristic-max-steps` for the heuristic cells (which don't have
   the concept of "updates").
+
+Ctrl+C is handled cleanly: the runner SIGTERMs all in-flight
+children, waits 10s, then SIGKILLs survivors. Pending cells are not
+launched after the first signal. A second Ctrl+C escalates to
+SIGKILL immediately.
 
 Per-cell outputs land at `<log-dir>/{cell}/{config.json,
 metrics.csv, stdout.log, tb/}`. After a sweep finishes, run the
@@ -678,19 +693,22 @@ Per cell at 1000 updates × 512 rollout = ~512k env steps:
 - Heuristic cells: ~30 seconds per cell.
 
 Sequential: 240 MAPPO cells × 5 min + 80 heuristic cells × 0.5 min
-= **20 hours** sequential. With 4-way parallelism (one Python
-process per core, which RWARE supports since each cell is
-independent): **~5 hours**. With 8-way: **~2.5 hours**.
+= **20 hours** sequential. With 3-way parallelism via the matrix
+runner's `--max-parallel 3 --threads-per-cell 1`: **~7 hours**.
+With 4-way: **~5 hours**. (The runner's parallel dispatch is
+verified byte-equivalent to sequential per cell -- see the parallel-
+dispatch QA in `policies/experiments/run_rware_matrix.py`.)
 
 The realistic plan is to run this overnight, single-machine, with
-3-4-way parallelism to keep memory bounded. **8 hours wall-clock**
-is the safe estimate. Add another 30 min for aggregation + plot
-generation + verification.
+3-way parallelism to keep memory bounded and avoid thermal
+throttling. **8 hours wall-clock** is the safe estimate. Add
+another 30 min for aggregation + plot generation + verification.
 
 ### 11.3 The eval rigor we still need
 
 The pilot's biggest flaw is `eval_episodes=3`. For the production
-matrix, bump to:
+matrix, just pass `--production-eval` to the matrix runner; that
+sets:
 
 - `eval_episodes = 30` per checkpoint (10x noise reduction). Adds
   roughly 2-3 min per cell, totally affordable.
