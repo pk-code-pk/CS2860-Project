@@ -145,6 +145,9 @@ def _build_train_cmd(
     dropout_agent: int,
     dropout_time: int,
     heartbeat_period: int,
+    shape_rewards: bool,
+    pickup_bonus: float,
+    step_penalty: float,
 ) -> tuple[list[str], dict[str, Any]]:
     cmd: list[str] = [
         python,
@@ -189,6 +192,15 @@ def _build_train_cmd(
         used["dropout"] = True
         used["dropout_agent"] = dropout_agent
         used["dropout_time"] = dropout_time
+
+    if shape_rewards:
+        cmd.append("--shape-rewards")
+        cmd.extend(["--pickup-bonus", str(pickup_bonus)])
+        if step_penalty != 0.0:
+            cmd.extend(["--step-penalty", str(step_penalty)])
+        used["shape_rewards"] = True
+        used["pickup_bonus"] = pickup_bonus
+        used["step_penalty"] = step_penalty
 
     if save_dir is not None:
         save_path = str(Path(save_dir) / f"{run_name}.pt")
@@ -326,6 +338,9 @@ def build_plans(
                             dropout_agent=args.dropout_agent,
                             dropout_time=args.dropout_time,
                             heartbeat_period=args.heartbeat_period,
+                            shape_rewards=args.shape_rewards,
+                            pickup_bonus=args.pickup_bonus,
+                            step_penalty=args.step_penalty,
                         )
                     elif method.kind == "heuristic":
                         cmd, used = _build_heuristic_cmd(
@@ -463,6 +478,18 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--heartbeat-period", type=int, default=1)
     p.add_argument("--dropout-agent", type=int, default=0)
     p.add_argument("--dropout-time", type=int, default=100)
+
+    # Reward shaping (forwarded to MAPPO trainings only; heuristic doesn't learn).
+    p.add_argument("--shape-rewards", action="store_true",
+                   help="Forward --shape-rewards to every MAPPO cell. Strongly "
+                        "recommended on rware-tiny-4ag-v2 — the unshaped reward "
+                        "is too sparse for vanilla MAPPO inside a CPU budget.")
+    p.add_argument("--pickup-bonus", type=float, default=0.5,
+                   help="Per-agent pickup-bonus value passed to MAPPO when "
+                        "--shape-rewards is on.")
+    p.add_argument("--step-penalty", type=float, default=0.0,
+                   help="Per-step penalty passed to MAPPO when --shape-rewards "
+                        "is on (0 disables).")
 
     # Output / dispatch
     p.add_argument("--log-dir", default="runs/exp_matrix")
