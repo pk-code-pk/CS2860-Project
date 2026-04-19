@@ -329,17 +329,19 @@ for the heuristic method) per cell, then writes everything under
 
 ## Aggregation and plots
 
+### Aggregator (CSV summaries for full-matrix runs)
+
 ```bash
 # Build per_run.csv and summary.csv from the matrix output.
 uv run python -m policies.analysis.aggregate \
     --log-dir runs/exp_matrix --last-k 5
 
-# Render the five figures used in the writeup.
+# Render the five summary figures used in the writeup.
 uv run python -m policies.analysis.plot_results \
     --in-dir runs/exp_matrix --out-dir runs/exp_matrix/figures
 ```
 
-Plots emitted:
+Summary plots emitted by `plot_results.py`:
 
 1. **Team return by method × regime** — overall headline.
 2. **Throughput / completion** (uses `train/ep_length_mean`).
@@ -347,6 +349,98 @@ Plots emitted:
 4. **Ambiguous-regime comparison** — `delay-dropout` vs others.
 5. **Communication comparison** — `mappo-heartbeat-only` vs
    `mappo-heartbeat-plus-comm` across regimes.
+
+### Pilot-sized analysis (per-update curves, per-seed dots, stat tests)
+
+The summary plotter is built for the *full* 24+-cell matrix. Pilot-sized
+sweeps (4 cells × 3 seeds) need richer visualisation to separate signal
+from noise:
+
+```bash
+# Single-pilot dashboard: per-update train + eval curves, per-seed dots
+# on the final-eval bars, and a Welch t-test annotation between
+# heartbeat-only and heartbeat+comm in each regime. Headline:
+# "comm benefit (delay-only)", "comm benefit (delay-dropout)" and the
+# interaction (drop − only).
+uv run python -m policies.analysis.pilot_dashboard \
+    --log-dir runs/exp_pilot_v3 \
+    --out runs/exp_pilot_v3/dashboard.png \
+    --title "pilot v3 (D=30, window dropout, n=3)"
+
+# Cross-pilot comparison: how the comm benefit shifts as a function
+# of the heartbeat delay D. Plots one panel per regime (eval return
+# vs D, lines = method) plus a comm-benefit-vs-D curve with SEM bars
+# and per-point Welch p-values. This is the visual answer to
+# "does comm matter more when D is large?".
+uv run python -m policies.analysis.compare_pilots \
+    --log-dirs runs/exp_pilot_v2 runs/exp_pilot_v3 \
+    --out runs/figures/compare_v2_v3.png \
+    --title "v2 (D=5) vs v3 (D=30) | window dropout, n=3 seeds"
+
+# Empirical heartbeat-age dynamics: runs random rollouts under each
+# delay setting and histograms the alive-vs-dead heartbeat age that a
+# receiver actually sees. The "ambiguity window" (overlap between the
+# two distributions) is the empirical reason comm helps at large D and
+# does nothing at small D.
+uv run python -m policies.analysis.heartbeat_dynamics \
+    --env rware-tiny-4ag-v2 \
+    --delays 5 30 \
+    --episodes 30 --max-steps 500 \
+    --dropout-window-start 200 --dropout-window-end 350 \
+    --out runs/figures/heartbeat_dynamics.png
+
+# Live-watch mode: re-render the dashboard PNG every N seconds while
+# training is still in progress.  metrics.csv is written incrementally
+# by the trainer, so each refresh shows real partial curves.  macOS
+# Preview will reload the file in-place when it changes -- pair this
+# with `open runs/<pilot>/dashboard.png` in Preview before you start.
+uv run python -m policies.analysis.pilot_dashboard \
+    --log-dir runs/exp_pilot_v3 --watch 30
+```
+
+### Verifying the dashboard numbers
+
+Plotters can lie -- a buggy aggregation step or a miscalibrated
+statistical test can produce confidently-wrong figures.  To keep the
+plots trustworthy we ship `policies.analysis.verify_dashboard`, which
+re-derives every drawn number from independent sources and asserts
+agreement:
+
+```bash
+uv run python -m policies.analysis.verify_dashboard
+```
+
+It runs three checks:
+
+1. **Per-cell finals**: re-reads each `metrics.csv` from scratch and
+   confirms the per-seed values the dashboard exposes match a manual
+   recompute exactly (rel_tol = 1e-9).
+2. **Welch t-test**: re-runs every (regime, delay) comparison through
+   `scipy.stats.ttest_ind(equal_var=False)` and asserts the p-values
+   our plotter draws agree to within 0.03 absolute *and* land on the
+   same significance label (`ns`/`*`/`**`/`***`).
+3. **Heartbeat dynamics**: collects 20 random-policy rollouts at each
+   delay D and asserts `median(alive_age) == D` and
+   `median(dead_age) == max_age_clip`, exactly as the
+   `HeartbeatTracker` docstring predicts.
+
+This script caught a real bug (a Cornish-Fisher tail approximation in
+the in-house t-test was reporting `p = 0.022 *` for a result whose
+exact p was `0.146 ns`); the dashboards now use scipy directly.
+
+Why these three coexist with the summary plotter:
+
+* `aggregate.py` + `plot_results.py` are designed for the final
+  publication-style matrix and produce *summary* bar charts only.
+* `pilot_dashboard.py` shows the *per-update curves* and *per-seed
+  spread* you need to interpret a pilot. With n=3 seeds, the bar
+  charts hide whether a +10 gap is signal or one outlier seed.
+* `compare_pilots.py` lets two or more pilots share an x-axis (`D`),
+  which is the only way to see the *interaction* between delay and
+  comm benefit.
+* `heartbeat_dynamics.py` is mechanism-level: it does not depend on
+  any trained policy and explains *why* the comm benefit moves with D
+  by showing the alive-vs-dead age overlap directly.
 
 Metric definitions (full list in `Planning/ExperimentPlan.md`):
 
@@ -418,7 +512,11 @@ Open the URL it prints (typically <http://127.0.0.1:6006>).
 | `policies/baselines/rware_heuristic.py` | Non-learning heuristic + CLI |
 | `policies/experiments/run_rware_matrix.py` | Methods × regimes × delays × seeds runner |
 | `policies/analysis/aggregate.py` | Build per_run.csv + summary.csv |
-| `policies/analysis/plot_results.py` | Five-figure plot pipeline |
+| `policies/analysis/plot_results.py` | Five-figure summary plot pipeline |
+| `policies/analysis/pilot_dashboard.py` | Per-pilot dashboard (curves + per-seed dots + scipy Welch t-tests, with `--watch` for live re-rendering) |
+| `policies/analysis/compare_pilots.py` | Cross-pilot comparison (comm benefit vs delay D) |
+| `policies/analysis/heartbeat_dynamics.py` | Empirical alive/dead heartbeat-age distributions |
+| `policies/analysis/verify_dashboard.py` | Cross-checks dashboard outputs against the aggregator, scipy, and the analytical heartbeat prediction |
 | `policies/demo_rware_dropout.py` | Single-rollout demo (text + optional pyglet) |
 | `policies/logger.py` | CSV + TensorBoard scalar logger |
 | `policies/summarize_runs.py` | Tail-and-summarise existing runs |

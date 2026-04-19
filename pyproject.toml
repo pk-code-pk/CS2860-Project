@@ -9,7 +9,11 @@ dependencies = [
     "matplotlib>=3.8",
     "multigrid>=0.1.0",
     "rware>=2.0.0",
+    "scipy>=1.17.1",
     "six>=1.16.0",
     "tensorboard>=2.20.0",
     "torch>=2.11.0",
 ]
+
+[dependency-groups]
+dev = []
