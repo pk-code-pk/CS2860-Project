@@ -1,0 +1,26 @@
+$ /Users/samchen/Coding/CLASSES/CS2860/.venv/bin/python3 -m policies.baselines.rware_heuristic --env rware-tiny-4ag-v2 --seed 0 --episodes 20 --max-steps 500 --stale-threshold 4 --log-dir runs/exp_matrix --run-name heuristic__delay-dropout__d30__s0 --heartbeat --heartbeat-period 1 --heartbeat-delay 30 --dropout --dropout-agent 0 --dropout-time 100
+
+[heuristic] env=rware-tiny-4ag-v2 n_agents=4 episodes=20 max_steps=500 stale_threshold=4 (effective=4)
+[heuristic] heartbeat=True (period=1, delay=30)  dropout=True (agent=0, time=100, window=[None,None))
+[log] writing to runs/exp_matrix/heuristic__delay-dropout__d30__s0
+[ep   0] return=0.000 length=500 deliveries=0
+[ep   1] return=0.000 length=500 deliveries=0
+[ep   2] return=0.000 length=500 deliveries=0
+[ep   3] return=0.000 length=500 deliveries=0
+[ep   4] return=0.000 length=500 deliveries=0
+[ep   5] return=0.000 length=500 deliveries=0
+[ep   6] return=0.000 length=500 deliveries=0
+[ep   7] return=0.000 length=500 deliveries=0
+[ep   8] return=0.000 length=500 deliveries=0
+[ep   9] return=0.000 length=500 deliveries=0
+[ep  10] return=0.000 length=500 deliveries=0
+[ep  11] return=0.000 length=500 deliveries=0
+[ep  12] return=0.000 length=500 deliveries=0
+[ep  13] return=0.000 length=500 deliveries=0
+[ep  14] return=0.000 length=500 deliveries=0
+[ep  15] return=0.000 length=500 deliveries=0
+[ep  16] return=0.000 length=500 deliveries=0
+[ep  17] return=0.000 length=500 deliveries=0
+[ep  18] return=0.000 length=500 deliveries=0
+[ep  19] return=0.000 length=500 deliveries=0
+[heuristic] 20 eps: return mean=0.000 std=0.000 deliveries mean=0.00

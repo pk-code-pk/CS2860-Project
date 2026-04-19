@@ -1,0 +1,21 @@
+{
+  "method": "heuristic",
+  "env": "rware-tiny-4ag-v2",
+  "episodes": 20,
+  "max_steps": 500,
+  "seed": 1,
+  "stale_threshold": 4,
+  "no_comm": false,
+  "heartbeat": true,
+  "heartbeat_period": 1,
+  "heartbeat_delay": 0,
+  "dropout": false,
+  "dropout_agent": null,
+  "dropout_time": null,
+  "dropout_window_start": null,
+  "dropout_window_end": null,
+  "log_dir": "runs/exp_matrix",
+  "run_name": "heuristic__baseline__d0__s1",
+  "no_log": false,
+  "env_spec": "EnvSpec(env_id='rware-tiny-4ag-v2', n_agents=4, obs_dim=75, n_env_actions=5, noop_action=0, family='rware')"
+}
