@@ -354,7 +354,9 @@ Summary plots emitted by `plot_results.py`:
 
 The summary plotter is built for the *full* 24+-cell matrix. Pilot-sized
 sweeps (4 cells × 3 seeds) need richer visualisation to separate signal
-from noise:
+from noise.  All examples below point at the committed pooled v3 pilot
+under `matrix_results/exp_pilot_v3/` (n=6 seeds, D=30, see
+`matrix_results/README.md` for provenance):
 
 ```bash
 # Single-pilot dashboard: per-update train + eval curves, per-seed dots
@@ -363,9 +365,9 @@ from noise:
 # "comm benefit (delay-only)", "comm benefit (delay-dropout)" and the
 # interaction (drop − only).
 uv run python -m policies.analysis.pilot_dashboard \
-    --log-dir runs/exp_pilot_v3 \
-    --out runs/exp_pilot_v3/dashboard.png \
-    --title "pilot v3 (D=30, window dropout, n=3)"
+    --log-dir matrix_results/exp_pilot_v3 \
+    --out matrix_results/exp_pilot_v3/dashboard.png \
+    --title "v3 pilot pooled (D=30, n=6: PK s10-s12 + SAM s0-s2)"
 
 # Cross-pilot comparison: how the comm benefit shifts as a function
 # of the heartbeat delay D. Plots one panel per regime (eval return
@@ -393,7 +395,9 @@ uv run python -m policies.analysis.heartbeat_dynamics \
 # training is still in progress.  metrics.csv is written incrementally
 # by the trainer, so each refresh shows real partial curves.  macOS
 # Preview will reload the file in-place when it changes -- pair this
-# with `open runs/<pilot>/dashboard.png` in Preview before you start.
+# with `open <pilot>/dashboard.png` in Preview before you start.
+# (use runs/<pilot> for live local training; matrix_results/<pilot> for
+#  the committed snapshots.)
 uv run python -m policies.analysis.pilot_dashboard \
     --log-dir runs/exp_pilot_v3 --watch 30
 ```
