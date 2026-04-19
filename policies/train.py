@@ -30,6 +30,8 @@ import torch
 from .logger import RunLogger
 from .mappo import MAPPOConfig, MAPPOTrainer, Runner, RolloutBuffer
 from .wrappers import make_unified_env
+from .wrappers.unified import DropoutConfig
+from .wrappers.heartbeat import HeartbeatConfig
 
 
 def _parse_args() -> argparse.Namespace:
@@ -62,6 +64,26 @@ def _parse_args() -> argparse.Namespace:
                    help="Subdirectory under --log-dir. Defaults to a timestamp.")
     p.add_argument("--no-log", action="store_true",
                    help="Disable CSV + TensorBoard logging entirely.")
+
+    # --- Ambiguity mechanism: controlled permanent dropout ---
+    p.add_argument("--dropout", action="store_true",
+                   help="Enable permanent teammate dropout mid-episode.")
+    p.add_argument("--dropout-agent", type=int, default=None,
+                   help="Which agent index to drop (fixed mode).")
+    p.add_argument("--dropout-time", type=int, default=None,
+                   help="Episode step at which dropout fires (fixed mode).")
+    p.add_argument("--dropout-window-start", type=int, default=None,
+                   help="Window mode: inclusive start of uniform-random dropout step.")
+    p.add_argument("--dropout-window-end", type=int, default=None,
+                   help="Window mode: exclusive end of uniform-random dropout step.")
+
+    # --- Ambiguity mechanism: delayed heartbeats ---
+    p.add_argument("--heartbeat", action="store_true",
+                   help="Enable delayed-heartbeat freshness features in obs.")
+    p.add_argument("--heartbeat-period", type=int, default=1,
+                   help="Emit a heartbeat every N steps (>=1).")
+    p.add_argument("--heartbeat-delay", type=int, default=0,
+                   help="Heartbeats arrive N steps after they were produced.")
     return p.parse_args()
 
 
@@ -76,10 +98,25 @@ def main() -> None:
 
     n_msg_tokens = 1 if args.no_comm else args.n_msg_tokens
 
+    dropout_cfg = DropoutConfig(
+        enabled=args.dropout,
+        agent=args.dropout_agent,
+        time=args.dropout_time,
+        window_start=args.dropout_window_start,
+        window_end=args.dropout_window_end,
+    )
+    heartbeat_cfg = HeartbeatConfig(
+        enabled=args.heartbeat,
+        period=max(1, args.heartbeat_period),
+        delay=max(0, args.heartbeat_delay),
+    )
+
     env = make_unified_env(
         args.env,
         n_agents=args.n_agents,
         n_msg_tokens=n_msg_tokens,
+        dropout_cfg=dropout_cfg,
+        heartbeat_cfg=heartbeat_cfg,
     )
     spec = env.spec
     print(f"[env] {spec}  (n_msg_tokens={n_msg_tokens})")
