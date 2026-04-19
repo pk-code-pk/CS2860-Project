@@ -61,24 +61,29 @@ class ActorInput:
 def build_actor_input(
     obs: torch.Tensor,
     messages: torch.Tensor,
-    alive: torch.Tensor,
+    alive: torch.Tensor,  # kept in the signature for API stability; NOT fed to the actor
     avail: torch.Tensor,
     agent_id_onehot: torch.Tensor,
 ) -> torch.Tensor:
     """
     Concatenate per-agent features into actor inputs of shape ``(B, N, F)``.
 
-    Each agent sees: own obs + flattened messages from all agents + alive bits
-    of all agents + flattened availability of all agents + its own agent-id
-    one-hot.
+    Each agent sees: own obs + flattened messages from all agents + flattened
+    availability of all agents + its own agent-id one-hot. Heartbeat-derived
+    freshness features (for the ambiguous-dropout setup) are already baked
+    into ``obs`` by the wrapper.
+
+    Note: ``alive`` is accepted but intentionally *not* concatenated – that
+    would hand the actor an oracle teammate-death signal and defeat the
+    point of the ambiguity mechanism. Masking with the true alive mask
+    still happens in ``sample_actions`` / ``evaluate_actions`` downstream.
     """
+    del alive  # not fed to the actor on purpose; see docstring
     B, N, _ = obs.shape
     msg_flat = messages.reshape(B, -1)                             # (B, N*K)
-    alive_flat = alive.reshape(B, -1)                              # (B, N)
     avail_flat = avail.reshape(B, -1)                              # (B, N*A)
 
-    # Broadcast shared "context" to every agent, and stick agent-id on the end.
-    shared = torch.cat([msg_flat, alive_flat, avail_flat], dim=-1)  # (B, C)
+    shared = torch.cat([msg_flat, avail_flat], dim=-1)              # (B, C)
     shared_bc = shared.unsqueeze(1).expand(B, N, shared.shape[-1])  # (B, N, C)
     id_bc = agent_id_onehot.unsqueeze(0).expand(B, N, agent_id_onehot.shape[-1])
 
@@ -115,7 +120,8 @@ class CommActor(nn.Module):
         self.n_env_actions = n_env_actions
         self.n_msg_tokens = n_msg_tokens
 
-        shared_extra = n_agents * n_msg_tokens + n_agents + n_agents * n_env_actions
+        # Alive is NOT part of the actor input (see build_actor_input).
+        shared_extra = n_agents * n_msg_tokens + n_agents * n_env_actions
         in_dim = obs_dim + shared_extra + n_agents  # + agent id one-hot
         self.in_dim = in_dim
 
@@ -230,6 +236,12 @@ def evaluate_actions(
     msg_dist = Categorical(logits=msg_logits)
     logp_env = env_dist.log_prob(env_actions)
     logp_msg = msg_dist.log_prob(msg_actions)
+    # Defensive clamp: if a stored action ever lands on a masked logit (rare
+    # but possible if the mask changes between rollout and update), the raw
+    # log_prob would be ~-1e9 from the masked logit and dominate the loss.
+    # Clamp to a tame lower bound; alive-masking still zeros dead rows.
+    logp_env = logp_env.clamp(min=-50.0)
+    logp_msg = logp_msg.clamp(min=-50.0)
     entropy = env_dist.entropy() + msg_dist.entropy()
 
     alive_f = alive.to(logp_env.dtype)

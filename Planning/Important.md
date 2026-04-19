@@ -20,6 +20,12 @@ envs/
   sample_envs.py          Pre-existing random-policy demo (untouched)
 ```
 
+## Runtime deps
+
+- `gymnasium`, `multigrid`, `rware` for the envs.
+- `torch` for the MAPPO networks and optimizers.
+- `tensorboard` for `RunLogger`'s TB event files (CSV works without it).
+
 ## Unified interface (the contract)
 
 Reset returns a dict:
@@ -59,6 +65,22 @@ Carried consistently through:
   into the team reward driving the shared central critic
 - PPO ratio is computed on team-level joint log-probs (sum over alive
   agents only – dead agents contribute 0 via the zeroed log-probs)
+
+The **actor's input features no longer include the true alive mask** –
+that would leak oracle teammate death and defeat the ambiguous-dropout
+condition. The alive mask still flows through `sample_actions` /
+`evaluate_actions` for log-prob masking and into the central critic.
+
+## Ambiguity mechanism (opt-in)
+
+`--dropout` + `--heartbeat` in `policies.train` activate the
+environment-side ambiguity condition: a controlled permanent dropout
+and a delayed-heartbeat freshness signal. Freshness features are
+appended to each agent's obs; in-flight heartbeats from a failed agent
+still arrive on schedule, which is exactly what makes "truly gone" vs
+"merely stale" hard to tell apart. Debug keys on `info`:
+`debug_true_alive`, `debug_dropout_fired`, `debug_failed_agent`,
+`debug_heartbeat_age`. Full spec: `Planning/MechanismSpec.md`.
 
 ## Parameter sharing
 

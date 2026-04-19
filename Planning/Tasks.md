@@ -33,18 +33,53 @@
 - Smoke tests: both envs train without errors; sensible loss/entropy/kl
   values.
 
+### Phase 3 – Logging + ablations
+- `policies/logger.py`: `RunLogger` writes per-update CSV rows and
+  TensorBoard event files (episode return, entropy, KL, value loss,
+  wall-clock SPS); `train.py` constructs it and logs each update.
+- `--no-comm` flag in `train.py` collapses the message channel to
+  `n_msg_tokens=1` for a no-communication ablation against the comms
+  baseline.
+
+### Phase 4 – Baselines + experiment matrix (branch `feature/rware-baselines-experiments`)
+- `policies/baselines/rware_heuristic.py`: paper-inspired hierarchical-style
+  reactive baseline. Greedy nearest-shelf allocation, heartbeat-aware
+  reallocation when a teammate's `info["debug_heartbeat_age"]` exceeds
+  `stale_threshold`. Includes a CLI driver so it can be invoked the same
+  way as `policies.train`.
+- `policies/experiments/run_rware_matrix.py`: matrix runner over
+  methods x regimes x heartbeat-delays x seeds. Dispatches each cell as a
+  subprocess, writes a `manifest.json` and per-run `stdout.log`. Supports
+  `--dry-run`, `--limit`, `--methods/--regimes/--delays/--seeds` filters.
+- `policies/analysis/aggregate.py`: walks the matrix output, parses run
+  names, joins with each run's `config.json`, and writes `per_run.csv`
+  and `summary.csv` (mean +/- std grouped by method x regime x delay).
+- `policies/analysis/plot_results.py`: emits the five mandatory figures
+  (team return vs delay; ep length vs delay; post-dropout bar chart;
+  ambiguous-regime bar chart; comm-ablation grouped bar chart).
+- `policies/demo_rware_dropout.py`: single deterministic rollout that
+  prints alive / true_alive / heartbeat-age / actions / message tokens
+  around the dropout moment. Backend is the heuristic by default;
+  `--checkpoint path/to/ckpt.pt` swaps in a trained MAPPO policy.
+- `Planning/ExperimentPlan.md`: study-level plan, methods compared,
+  regimes, delays, seeds, metric definitions, expected key claim.
+
 ## Next up
 
 ### Phase 3 – Longer training + logging
-- Wire TensorBoard / CSV logging (episode return, entropy, KL, value loss,
-  wall-clock SPS) into `train.py`.
 - Run full-length experiments on `rware-tiny-2ag-v2`, `rware-small-4ag-v2`
-  and on `MultiGrid-Empty-Random-8x8-v0` with 2+ agents to get a baseline
+  and on `MultiGrid-Empty-Random-6x6-v0` with 2+ agents to get a baseline
   learning curve for the flat MAPPO + comms model.
-- Add a no-communication ablation (`n_msg_tokens=1`) to verify the
-  communication channel actually helps.
 
-### Phase 4 – Hierarchical extension (future)
+### Phase 4 – Mechanism branch hand-off
+- The matrix runner / heuristic / demo all forward the new wrapper
+  flags (`--dropout`, `--heartbeat`, `--heartbeat-delay`,
+  `--dropout-agent`, `--dropout-time`, ...). Once the mechanism branch
+  merges those into `policies/wrappers/unified.py` (and adds the
+  `info["debug_*"]` keys), this branch's scripts will exercise them
+  end-to-end with no further changes.
+
+### Phase 5 – Hierarchical extension (future)
 - Introduce an option / manager layer that consumes the same communication
   channel but outputs a higher-level macro action, then compare against
   this flat baseline.

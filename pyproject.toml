@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "gymnasium>=1.2.3",
+    "matplotlib>=3.8",
     "multigrid>=0.1.0",
     "rware>=2.0.0",
     "six>=1.16.0",

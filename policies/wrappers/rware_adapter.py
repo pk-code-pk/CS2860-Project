@@ -11,6 +11,18 @@ RWARE specifics we normalize away:
 
 We force ``msg_bits=0`` so RWARE's built-in per-agent communication bits do
 not interfere with the communication channel we add on top of the wrapper.
+
+Optional reward shaping (``shape_rewards=True``):
+  * RWARE's stock reward is +1 on delivery, 0 otherwise. With 4 agents on a
+    tiny warehouse this is brutally sparse and vanilla MAPPO struggles to
+    bootstrap inside a CPU-friendly budget. The standard fix used in the
+    RWARE literature is a small dense bonus on the pick-up step:
+    ``+pickup_bonus`` added to an agent's reward the first step its
+    ``carrying_shelf`` flips from ``None`` to a *currently-requested* shelf.
+    Picking up a shelf that is not in the request queue gives no bonus
+    (otherwise the agent could farm pickup bonus by toggling random
+    shelves). An optional small per-step ``step_penalty`` is also exposed
+    but defaults to 0.
 """
 
 from __future__ import annotations
@@ -34,7 +46,15 @@ class RwareAdapter:
 
     spec: EnvSpec
 
-    def __init__(self, env_id: str, **make_kwargs: Any):
+    def __init__(
+        self,
+        env_id: str,
+        *,
+        shape_rewards: bool = False,
+        pickup_bonus: float = 0.5,
+        step_penalty: float = 0.0,
+        **make_kwargs: Any,
+    ):
         # Force msg_bits=0 so the env's action space is a plain Discrete(5)
         # per agent. The unified wrapper adds its own communication channel.
         make_kwargs.setdefault("msg_bits", 0)
@@ -65,6 +85,14 @@ class RwareAdapter:
             family="rware",
         )
 
+        # Reward shaping config (see module docstring).
+        self.shape_rewards = bool(shape_rewards)
+        self.pickup_bonus = float(pickup_bonus)
+        self.step_penalty = float(step_penalty)
+        # Per-agent "was carrying a requested shelf last step" flag, used to
+        # detect the False -> True pick-up transition. Initialised in reset().
+        self._prev_carrying_requested = np.zeros(self.spec.n_agents, dtype=bool)
+
     # ---- interface ----------------------------------------------------
 
     def reset(
@@ -74,6 +102,8 @@ class RwareAdapter:
         obs = self._stack_obs(obs_tuple)
         avail = self._available_actions()
         alive = np.ones(self.spec.n_agents, dtype=bool)
+        # Reset shaping bookkeeping.
+        self._prev_carrying_requested = self._carrying_requested_mask()
         return obs, avail, alive, info
 
     def step(
@@ -83,14 +113,24 @@ class RwareAdapter:
         obs_tuple, rewards, done, truncated, info = self._env.step(actions)
         obs = self._stack_obs(obs_tuple)
         reward = np.asarray(rewards, dtype=np.float32)
+
+        # Optional reward shaping. Done after the env step so we can read
+        # post-step `carrying_shelf` state.
+        if self.shape_rewards:
+            cur_carrying = self._carrying_requested_mask()
+            picked_up = cur_carrying & ~self._prev_carrying_requested
+            if self.pickup_bonus != 0.0:
+                reward = reward + picked_up.astype(np.float32) * self.pickup_bonus
+            if self.step_penalty != 0.0:
+                reward = reward - self.step_penalty
+            self._prev_carrying_requested = cur_carrying
+
         episode_done = bool(done) or bool(truncated)
-        # RWARE has no per-agent death; agents are "alive" until the episode
-        # terminates. On a global done we flip everyone off so GAE sees the
-        # final state correctly, but the alive mask returned here reflects
-        # the state *after* the step: still alive unless the episode ended.
-        alive = np.ones(self.spec.n_agents, dtype=bool) if not episode_done else (
-            np.ones(self.spec.n_agents, dtype=bool)
-        )
+        # RWARE has no per-agent termination; agents are "alive" for the entire
+        # episode. Episode-level termination is signalled via the `done` return
+        # value. UnifiedMARLEnv handles the "force done when all agents dead"
+        # corner case for envs that DO have per-agent termination.
+        alive = np.ones(self.spec.n_agents, dtype=bool)
         avail = self._available_actions()
         return obs, avail, alive, reward, episode_done, info
 
@@ -111,3 +151,23 @@ class RwareAdapter:
         return np.ones(
             (self.spec.n_agents, self.spec.n_env_actions), dtype=np.uint8
         )
+
+    def _carrying_requested_mask(self) -> np.ndarray:
+        """
+        Per-agent bool: ``True`` iff the agent is currently carrying a shelf
+        whose ``id`` is in the env's request queue. Used by reward shaping
+        to detect the False -> True pickup transition on a *requested*
+        shelf (so agents can't farm pickup bonus on random shelves).
+        """
+        base = self._env.unwrapped
+        try:
+            requested_ids = {s.id for s in base.request_queue}
+        except Exception:
+            requested_ids = set()
+        out = np.zeros(self.spec.n_agents, dtype=bool)
+        for i, ag in enumerate(base.agents):
+            shelf = getattr(ag, "carrying_shelf", None)
+            if shelf is None:
+                continue
+            out[i] = shelf.id in requested_ids
+        return out
