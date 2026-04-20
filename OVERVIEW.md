@@ -675,34 +675,66 @@ becomes the final paper.
 | delays  | `0` (only for `baseline`/`dropout-only`), `5`, `15`, `30`   |
 | seeds   | 10                                                          |
 
-After dropping degenerate combinations (delay > 0 in baseline,
-delay > 0 in dropout-only), this is roughly:
+After dropping degenerate combinations the actual cell count is:
 
-- 4 methods × baseline × 1 delay × 10 seeds = 40 cells
-- 4 methods × delay-only × 3 delays × 10 seeds = 120 cells
-- 4 methods × dropout-only × 1 delay × 10 seeds = 40 cells
-- 4 methods × delay-dropout × 3 delays × 10 seeds = 120 cells
+- **Heartbeat methods** (heuristic, mappo-heartbeat-only,
+  mappo-heartbeat-plus-comm) -- 3 methods × 8 cells × 10 seeds:
+    - baseline (1 delay) + delay-only (3 delays) + dropout-only (1 delay) +
+      delay-dropout (3 delays) = 8 cells per method per seed
+    - 3 × 8 × 10 = **240 cells**
+- **mappo-no-comm** (no heartbeat in obs, so the runner's
+  `_is_meaningful` check correctly skips delay-bearing regimes):
+    - baseline + dropout-only = 2 cells per seed
+    - 1 × 2 × 10 = **20 cells**
 
-**Total: 320 cells.**
+**Total: 260 cells** (180 MAPPO + 80 heuristic).
 
-### 11.2 Compute budget (the "8-hour" plan)
+The dry-run preview confirms this:
 
-Per cell at 1000 updates × 512 rollout = ~512k env steps:
+```bash
+uv run python -m policies.experiments.run_rware_matrix \
+    --env rware-tiny-4ag-v2 \
+    --methods heuristic mappo-no-comm mappo-heartbeat-only mappo-heartbeat-plus-comm \
+    --regimes baseline delay-only dropout-only delay-dropout \
+    --delays 5 15 30 \
+    --seeds 0 1 2 3 4 5 6 7 8 9 \
+    --updates 1000 --rollout 512 \
+    --shape-rewards \
+    --dropout-window-start 200 --dropout-window-end 350 \
+    --log-dir runs/exp_main \
+    --max-parallel 3 --threads-per-cell 1 \
+    --production-eval \
+    --dry-run
+# -> [matrix] 260 planned run(s)
+```
 
-- MAPPO cells: ~4-6 minutes wall-clock per cell on this CPU.
-- Heuristic cells: ~30 seconds per cell.
+### 11.2 Compute budget
 
-Sequential: 240 MAPPO cells × 5 min + 80 heuristic cells × 0.5 min
-= **20 hours** sequential. With 3-way parallelism via the matrix
-runner's `--max-parallel 3 --threads-per-cell 1`: **~7 hours**.
-With 4-way: **~5 hours**. (The runner's parallel dispatch is
-verified byte-equivalent to sequential per cell -- see the parallel-
-dispatch QA in `policies/experiments/run_rware_matrix.py`.)
+Per cell at 1000 updates × 512 rollout = ~512k env steps. From the
+v4 pilot (currently running, see `matrix_results/exp_pilot_v4/` once
+it lands), measured costs **with `--production-eval` enabled**:
 
-The realistic plan is to run this overnight, single-machine, with
-3-way parallelism to keep memory bounded and avoid thermal
-throttling. **8 hours wall-clock** is the safe estimate. Add
-another 30 min for aggregation + plot generation + verification.
+- MAPPO cells: ~30 minutes wall-clock per cell on M-series CPU
+  with 3-way parallel + threads-per-cell=1. The eval portion (40
+  evals × 30 episodes × 500 steps × 4 agents) is roughly 4x the
+  training portion, so production-eval is the dominant cost.
+- Heuristic cells: ~1-2 minutes per cell (no learning, just 20
+  rollout episodes; eval flag is ignored).
+
+Sequential single-lab: 180 MAPPO × 30 min + 80 heuristic × 2 min
+= ~93 hours. With 3-way parallelism: **~31 hours**.
+
+**Split across two labs** (PK seeds 0-4, Sam seeds 5-9), each lab
+runs 130 cells × 3-way parallel: **~16 hours per lab in parallel**
+= ~16 hours wall-clock pooled (each lab does its slice
+overnight-into-next-day). This is the realistic deliverable.
+
+If 16 hours per lab is too long, the cheap dial is to drop the eval
+density: pass `--eval-every 50 --eval-episodes 30` instead of
+`--production-eval` (which uses `eval-every=25`). That halves the
+eval cost and brings each MAPPO cell down to ~18 min, total per-lab
+wall-clock to ~10 hours. The trade is that you only get 20 eval
+points per training curve instead of 40.
 
 ### 11.3 The eval rigor we still need
 

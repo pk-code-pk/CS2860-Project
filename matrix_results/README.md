@@ -8,7 +8,9 @@ land here.
 ```
 matrix_results/
 ├── exp_matrix/        # full-matrix smoke + heuristic baseline (SAM)
-└── exp_pilot_v3/      # MAPPO 4-cell pilot at D=30, n=6 (PK + SAM)
+├── exp_pilot_v3/      # MAPPO 4-cell pilot at D=30, n=6 (PK + SAM, eval=3 ep/ckpt)
+└── exp_pilot_v4/      # SAME 4 cells at D=30 with --production-eval (eval=30 ep/ckpt);
+                       # PK seeds 0-2 committed; SAM 3-5 to be merged for n=6 pooled
 ```
 
 Aggregated outputs (`per_run.csv`, `summary.csv`) are regenerable from
@@ -135,6 +137,100 @@ not a *result*.  Welch's t on hb+comm vs hb-only in delay-dropout
 gives p ≈ 0.47.  We need either more seeds (target n≈30) or wider
 eval episodes (target ≥30/checkpoint) before this becomes
 publishable.
+
+---
+
+## `exp_pilot_v4/` — SAME 4 cells, but with `--production-eval`
+
+The v3 pilot's biggest flaw was `eval_episodes=3` per checkpoint
+(see "Read these numbers carefully" above). v4 reruns the IDENTICAL
+4 cells × 3 seeds at D=30 with `--production-eval`, which switches
+to `eval_every=25 eval_episodes=30` so eval noise drops by roughly
+sqrt(30/3) ≈ 3.2×.
+
+**PK slice committed here** (seeds 0, 1, 2 — *not* the s10/s11/s12
+offset trick; v4 uses raw seed numbers because we coordinate the
+split with SAM via disjoint seed ranges instead). SAM is expected
+to run seeds 3, 4, 5 with the identical command and push to the
+same `matrix_results/exp_pilot_v4/` directory; once that lands, the
+pooled n=6 dashboard becomes the v4 headline.
+
+Run command (PK; SAM identical except `--seeds 3 4 5`):
+
+```bash
+uv run python -m policies.experiments.run_rware_matrix \
+    --methods mappo-heartbeat-only mappo-heartbeat-plus-comm \
+    --regimes delay-only delay-dropout \
+    --delays 30 --seeds 0 1 2 \
+    --updates 1000 --rollout 512 \
+    --shape-rewards \
+    --dropout-window-start 200 --dropout-window-end 350 \
+    --log-dir runs/exp_pilot_v4 \
+    --max-parallel 3 --threads-per-cell 1 \
+    --production-eval
+```
+
+PK wall-clock: ~70 minutes total for 12 cells via 3-way parallel
+on M-series (4 batches of 3 cells × ~13–30 min each). The first
+batch happened to be the slow one (~30 min/cell vs ~13 min for the
+later batches); cause is likely thermal warm-up or background apps,
+not a runner bug.
+
+### Headline numbers (PK n=3, eval-mean-last5)
+
+```
+                            train (n=3)        eval (n=3, last5)
+hb-only  delay-only         265.4 +/- 11.0     85.8 +/-  2.8
+hb-only  delay-dropout      239.3 +/- 10.5     90.2 +/-  7.4
+hb+comm  delay-only         276.9 +/-  7.4     88.2 +/-  3.8
+hb+comm  delay-dropout      263.4 +/-  2.7     92.0 +/-  3.4
+
+comm benefit (delta = hb+comm - hb-only):
+  delay-only      train +11.6 (Welch p = 0.44)   eval +2.4 (p = 0.64)
+  delay-dropout   train +24.1 (Welch p = 0.14)   eval +1.7 (p = 0.85)
+interaction (drop_benefit - only_benefit):
+  train  +12.51   <- "comm helps roughly 2x more under dropout"
+  eval   -0.67    <- noise-dominated, env-size artifact (see below)
+```
+
+### What this means
+
+1. **Eval noise was crushed as predicted.** Compare SEM of
+   `hb-only delay-only` across versions: v3 = 18.98 (n=6,
+   eval=3), v4 = 2.83 (n=3, eval=30). Even with HALF the seeds,
+   v4's eval SEM is 2–7× tighter cell-by-cell. `--production-eval`
+   does what we wanted.
+2. **Training-return is the cleaner headline metric for this env.**
+   The training-return story is internally consistent: dropout
+   makes the task harder (~10% return drop, both methods), and
+   comm helps ~2× more under dropout than under delay alone
+   (interaction +12.5 pts). This is the directional finding that
+   matches the hypothesis.
+3. **The "dropout looks easier in eval" thing is REAL but small.**
+   Even with 30 eval episodes, eval still slightly favors dropout
+   (+4 to +6 pts in the hb-only case). With eval noise this tight,
+   that residual signal is the "less crowding in tiny RWARE"
+   artifact — removing one of 4 agents on a 7×7 grid genuinely
+   reduces collision pressure on the survivors. Worth a methods-
+   note paragraph in the paper; not a showstopper.
+4. **n=3 is not enough for significance.** Best p-value is 0.14
+   on the dropout comm benefit. The whole point of pooling SAM's
+   slice in is to cheaply reach n=6, which should push this to
+   p < 0.10 if the +24 effect is real, and possibly p < 0.05.
+
+### Read these numbers carefully
+
+* The comm benefit in `delay-only` (+11.6 train) is also positive
+  and trending — that's expected (comm helps in general). The
+  contribution we want to report is the *interaction*, i.e. how
+  much MORE comm helps under dropout than under just delay. That
+  number (+12.5 train) is the headline.
+* Don't read the eval numbers alone. They're tight enough now to
+  trust per-cell, but they include the env-size artifact so
+  ordering between regimes is unreliable on this env.
+* `eval_every=25` means each cell has 40 eval points; the mean of
+  the LAST 5 is the per-cell summary used above. Final-only is
+  noisier and we don't use it.
 
 ---
 

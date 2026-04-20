@@ -426,16 +426,21 @@ seed sets cannot collide on disk. The clean workflow is:
 The pooled directory drops straight into all the existing analysis
 tools (`pilot_dashboard`, `compare_pilots`, `aggregate`, ...).
 
-For the **320-cell production matrix**, the seed split is:
+For the **260-cell production matrix** (180 MAPPO + 80 heuristic
+after the runner drops degenerate cells -- see OVERVIEW §11.1), the
+seed split is:
 
-| | seeds | cells | est. wall-clock (3-way parallel) |
+| | seeds | cells | est. wall-clock (3-way parallel, `--production-eval`) |
 |---|---|---|---|
-| PK  | 0–4 | 160 | ~5h |
-| Sam | 5–9 | 160 | ~5h |
-| **pooled** | 0–9 | **320** | **~5h total** (parallel across labs) |
+| PK  | 0–4 | 130 | ~16h |
+| Sam | 5–9 | 130 | ~16h |
+| **pooled** | 0–9 | **260** | **~16h total** (both labs in parallel, overnight-into-next-day) |
 
-vs ~10h if either lab ran the full 320 cells alone, and ~20h
-sequential.
+vs ~31h if either lab ran the full 260 cells alone at 3-way
+parallel, and ~93h sequential. The dominant cost in production-eval
+mode is the eval portion (40 evals/cell × 30 episodes each); see
+OVERVIEW §11.2 for the option to halve eval cost via
+`--eval-every 50 --eval-episodes 30`.
 
 ---
 
