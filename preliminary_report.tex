@@ -1,0 +1,80 @@
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{hyperref}
+\geometry{margin=1in}
+
+\title{Preliminary Data \& Report\\CS 2860}
+\author{Sam Chen and Praneel K.}
+\date{April 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+We study whether learned communication helps cooperative multi-agent teams cope with two distinct failure modes: \textbf{heartbeat delay} (stale observations) and \textbf{agent dropout} (a teammate temporarily freezing mid-episode). We train MAPPO agents on \texttt{rware-tiny-4ag-v2}, a 4-agent warehouse task, using two communication methods---\textit{heartbeat-only} (hb-only) and \textit{heartbeat + RIAL-style learned messages} (hb+comm)---crossed with two regimes: \textit{delay-only} (heartbeat lag $D=30$ steps) and \textit{delay-dropout} (same lag plus one agent freezing during steps 200--350).
+
+Our central hypothesis is that learned communication should help \emph{more} under dropout than under delay alone, because dropout creates genuine informational ambiguity that a static heartbeat cannot resolve.
+
+\section{Experimental Setup}
+
+All cells share the same MAPPO hyperparameters: 1000 update steps, rollout length 512, shaped reward (task return + $0.5 \times$ pickups), heartbeat delay $D=30$. Our headline result (\textbf{exp\_pilot\_v4 pooled}) uses \texttt{--production-eval} ($\text{eval\_every}=25$, $\text{eval\_episodes}=30$), which reduces eval noise by roughly $\sqrt{10}\approx 3\times$ compared to our earlier v3 pilot. Six independent seeds (PK: 0--2, SAM: 3--5) were run on separate machines and pooled after verifying config equivalence.
+
+\section{Results}
+
+\subsection{Training Return (shaped reward)}
+
+Training return is averaged over the last 50 update points per run---low variance and our primary metric.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llrr}
+\toprule
+\textbf{Method} & \textbf{Regime} & \textbf{Mean} & \textbf{SEM} \\
+\midrule
+hb-only  & delay-only    & 253.6 & 7.7 \\
+hb+comm  & delay-only    & 274.1 & 7.0 \\
+hb-only  & delay-dropout & 234.6 & 7.9 \\
+hb+comm  & delay-dropout & 258.7 & 4.8 \\
+\bottomrule
+\end{tabular}
+\caption{Pooled training return ($n=6$, \texttt{rware-tiny-4ag-v2}, $D=30$).}
+\end{table}
+
+Communication provides a consistent positive benefit: $+20.5$ pts under delay-only (Welch $p=0.077$) and $+24.2$ pts under delay-dropout ($p=0.030$). Dropout reduces return by $\approx 10\%$ for both methods, confirming it objectively makes the task harder. The interaction effect (how much \emph{more} comm helps under dropout vs.\ delay alone) is $+3.7$ pts ($p=0.82$)---not significant at this $n$.
+
+\subsection{Eval Return (unshaped, deliveries only)}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{llrr}
+\toprule
+\textbf{Method} & \textbf{Regime} & \textbf{Mean} & \textbf{SEM} \\
+\midrule
+hb-only  & delay-only    & 84.9 & 2.1 \\
+hb+comm  & delay-only    & 84.6 & 2.6 \\
+hb-only  & delay-dropout & 96.3 & 4.7 \\
+hb+comm  & delay-dropout & 83.3 & 5.4 \\
+\bottomrule
+\end{tabular}
+\caption{Pooled eval return (last 10 eval points per run, $n=6$).}
+\end{table}
+
+Eval return does not replicate the training-return pattern. The comm benefit is near zero under delay-only ($-0.2$, $p=0.94$) and slightly negative under dropout ($-13.0$, $p=0.10$). The two metrics diverge because training uses the \emph{shaped} reward (pickups contribute), while eval measures \emph{deliveries only}. If comm helps agents coordinate pickups but not final delivery routing, it registers in training but not eval---a known failure mode of reward shaping on this environment.
+
+A secondary artifact: dropout consistently \emph{appears easier} in eval (+11 pts in hb-only), even with 30 episodes per checkpoint. This is robust at $n=6$ and attributable to reduced agent-collision pressure on the $7{\times}7$ grid when one of four agents is frozen. It is an environment-size artifact, not a finding about communication.
+
+\section{Discussion}
+
+\paragraph{What we can claim.} Learned RIAL-style communication provides a reliable shaped-return benefit (${\approx}+20$ pts, $p=0.03$ under dropout). This is a replicable positive signal across six independent seeds run on two different machines.
+
+\paragraph{What we cannot yet claim.} The \emph{interaction} effect---that comm helps specifically more when dropout creates ambiguity---collapses to noise ($+3.7$, $p=0.82$) at $n=6$. The eval metric does not support the comm benefit at all.
+
+\paragraph{Next steps.} Two paths forward: (A) report the honest weaker claim (comm helps training return; no eval transfer on \texttt{tiny}) as a complete small empirical result; or (B) move to \texttt{rware-small-4ag-v2} to eliminate the crowding artifact and retest the interaction hypothesis on an environment with more spatial slack. A 30-minute smoke run on \texttt{small} will determine whether the interaction survives outside \texttt{tiny}'s crowding artifact before committing to a full $n=6$ production run.
+
+\end{document}
