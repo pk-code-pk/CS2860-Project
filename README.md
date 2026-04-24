@@ -14,6 +14,14 @@ version: wrapper-level dropout/heartbeat mechanism, all four study methods,
 the experiment matrix runner, the analysis/plot pipeline, and the demo
 rollout (with optional pyglet window).
 
+> **Looking for the research overview?** Read [`OVERVIEW.md`](OVERVIEW.md).
+> It explains the scientific question, the mechanism, the four
+> methods/regimes, the pooled v3 data we already have, and the
+> production-matrix plan for the final paper. This README is the
+> CLI / commands reference; `OVERVIEW.md` is the research-and-paper
+> companion. For per-experiment provenance and "read these numbers
+> carefully" caveats see [`matrix_results/README.md`](matrix_results/README.md).
+
 ---
 
 ## Table of contents
@@ -325,21 +333,132 @@ for the heuristic method) per cell, then writes everything under
 `<log-dir>/<run-name>/` with run names like
 `mappo-heartbeat-plus-comm__delay-dropout__d5__s2`.
 
+### Parallel dispatch (`--max-parallel`, `--threads-per-cell`)
+
+By default cells run **one at a time**. Pass `--max-parallel N` to run up to
+N cells concurrently as separate subprocesses. Each child has its BLAS /
+OpenMP / Accelerate thread pool capped via `--threads-per-cell K`
+(default 1) so parallel children don't oversubscribe the cores -- without
+this cap, every Python child spawns a thread pool sized to the physical
+core count and N children fight each other.
+
+Recommended sweet spot on an 8-core Apple Silicon laptop:
+
+```bash
+uv run python -m policies.experiments.run_rware_matrix \
+    --methods mappo-heartbeat-only mappo-heartbeat-plus-comm \
+    --regimes delay-only delay-dropout \
+    --delays 30 --seeds 0 1 2 \
+    --updates 1000 --rollout 512 \
+    --shape-rewards \
+    --dropout-window-start 200 --dropout-window-end 350 \
+    --log-dir runs/exp_pilot_v4 \
+    --max-parallel 3 --threads-per-cell 1 \
+    --production-eval
+```
+
+What you'll see while it runs:
+
+```
+[start] mappo-heartbeat-only__delay-only__d30__s0  pid=23912  in_flight=1/3  queued=11  done=0
+[start] mappo-heartbeat-only__delay-only__d30__s1  pid=23913  in_flight=2/3  queued=10  done=0
+[start] mappo-heartbeat-only__delay-only__d30__s2  pid=23914  in_flight=3/3  queued=9   done=0
+[done ] mappo-heartbeat-only__delay-only__d30__s0  exit=0 (ok )  cell_elapsed= 612.4s  wall= 612.4s  ...
+[start] mappo-heartbeat-only__delay-dropout__d30__s0  pid=24205  in_flight=3/3  queued=8   done=1
+...
+```
+
+Per-cell stdout still lands in `<log-dir>/<run-name>/stdout.log` (drop
+`--no-capture` if you want clean per-cell logs in parallel mode).
+
+### Production-grade eval (`--production-eval`)
+
+The defaults `--eval-every 10 --eval-episodes 3` are intentionally
+smoke-test-y. For a research-grade run that should produce publishable
+curves, pass `--production-eval` to override these to:
+
+* `--eval-every 25` (one greedy eval every 25 PPO updates)
+* `--eval-episodes 30` (30 episodes per eval, ~10x less noisy than 3)
+
+Equivalent to setting both flags explicitly. We saw in the v3 pilot
+that `eval-episodes 3` was the dominant source of cell-to-cell noise
+(see `matrix_results/README.md`); 30 episodes brings the eval SEM down
+to roughly the seed-to-seed SEM, which is the right ratio.
+
+### Ctrl+C handling
+
+Ctrl+C in a parallel run is handled cleanly: the matrix runner sends
+`SIGTERM` to all in-flight children, waits 10s for them to exit, then
+escalates to `SIGKILL`. A second Ctrl+C escalates to `SIGKILL`
+immediately. No queued cells are launched after the first signal.
+
+### Cross-lab parallel: split seeds across two laptops, then pool
+
+Because each per-cell directory is named
+`{method}__{regime}__d{delay}__s{seed}/`, two labs running disjoint
+seed sets cannot collide on disk. The clean workflow is:
+
+1. Both labs run the **identical** matrix command, differing **only**
+   in `--seeds` (e.g. PK runs `--seeds 0 1 2`, Sam runs
+   `--seeds 3 4 5`). Same `--log-dir runs/<pilot>` on both sides.
+2. Each lab `git push`es their slice when done.
+3. On either machine: `git pull` the other slice (it lands at a
+   different absolute path, e.g. `runs/<pilot>` vs the other lab's
+   checkout), then pool:
+
+   ```bash
+   uv run python -m policies.analysis.pool_runs \
+       --srcs runs/<pilot> /path/to/other_lab/runs/<pilot> \
+       --out runs/<pilot>_pooled
+   ```
+
+`pool_runs` enforces hard checks before copying anything:
+
+- **Refuses to pool overlapping seeds** (would shadow one lab's data).
+- **Refuses to pool runs with mismatched critical config** (env,
+  methods, regimes, delays, updates, rollout, eval-episodes,
+  shape-rewards, dropout-window-{start,end}, ...). Pass
+  `--allow-config-mismatch` only if you intentionally want this; a
+  warning will be recorded in `pooled_manifest.json`.
+- Writes a `pooled_manifest.json` in the destination so downstream
+  readers can answer "which cell came from which lab?".
+
+The pooled directory drops straight into all the existing analysis
+tools (`pilot_dashboard`, `compare_pilots`, `aggregate`, ...).
+
+For the **260-cell production matrix** (180 MAPPO + 80 heuristic
+after the runner drops degenerate cells -- see OVERVIEW §11.1), the
+seed split is:
+
+| | seeds | cells | est. wall-clock (3-way parallel, `--production-eval`) |
+|---|---|---|---|
+| PK  | 0–4 | 130 | ~16h |
+| Sam | 5–9 | 130 | ~16h |
+| **pooled** | 0–9 | **260** | **~16h total** (both labs in parallel, overnight-into-next-day) |
+
+vs ~31h if either lab ran the full 260 cells alone at 3-way
+parallel, and ~93h sequential. The dominant cost in production-eval
+mode is the eval portion (40 evals/cell × 30 episodes each); see
+OVERVIEW §11.2 for the option to halve eval cost via
+`--eval-every 50 --eval-episodes 30`.
+
 ---
 
 ## Aggregation and plots
+
+### Aggregator (CSV summaries for full-matrix runs)
 
 ```bash
 # Build per_run.csv and summary.csv from the matrix output.
 uv run python -m policies.analysis.aggregate \
     --log-dir runs/exp_matrix --last-k 5
 
-# Render the five figures used in the writeup.
+# Render the five summary figures used in the writeup.
 uv run python -m policies.analysis.plot_results \
     --in-dir runs/exp_matrix --out-dir runs/exp_matrix/figures
 ```
 
-Plots emitted:
+Summary plots emitted by `plot_results.py`:
 
 1. **Team return by method × regime** — overall headline.
 2. **Throughput / completion** (uses `train/ep_length_mean`).
@@ -347,6 +466,102 @@ Plots emitted:
 4. **Ambiguous-regime comparison** — `delay-dropout` vs others.
 5. **Communication comparison** — `mappo-heartbeat-only` vs
    `mappo-heartbeat-plus-comm` across regimes.
+
+### Pilot-sized analysis (per-update curves, per-seed dots, stat tests)
+
+The summary plotter is built for the *full* 24+-cell matrix. Pilot-sized
+sweeps (4 cells × 3 seeds) need richer visualisation to separate signal
+from noise.  All examples below point at the committed pooled v3 pilot
+under `matrix_results/exp_pilot_v3/` (n=6 seeds, D=30, see
+`matrix_results/README.md` for provenance):
+
+```bash
+# Single-pilot dashboard: per-update train + eval curves, per-seed dots
+# on the final-eval bars, and a Welch t-test annotation between
+# heartbeat-only and heartbeat+comm in each regime. Headline:
+# "comm benefit (delay-only)", "comm benefit (delay-dropout)" and the
+# interaction (drop − only).
+uv run python -m policies.analysis.pilot_dashboard \
+    --log-dir matrix_results/exp_pilot_v3 \
+    --out matrix_results/exp_pilot_v3/dashboard.png \
+    --title "v3 pilot pooled (D=30, n=6: PK s10-s12 + SAM s0-s2)"
+
+# Cross-pilot comparison: how the comm benefit shifts as a function
+# of the heartbeat delay D. Plots one panel per regime (eval return
+# vs D, lines = method) plus a comm-benefit-vs-D curve with SEM bars
+# and per-point Welch p-values. This is the visual answer to
+# "does comm matter more when D is large?".
+uv run python -m policies.analysis.compare_pilots \
+    --log-dirs runs/exp_pilot_v2 runs/exp_pilot_v3 \
+    --out runs/figures/compare_v2_v3.png \
+    --title "v2 (D=5) vs v3 (D=30) | window dropout, n=3 seeds"
+
+# Empirical heartbeat-age dynamics: runs random rollouts under each
+# delay setting and histograms the alive-vs-dead heartbeat age that a
+# receiver actually sees. The "ambiguity window" (overlap between the
+# two distributions) is the empirical reason comm helps at large D and
+# does nothing at small D.
+uv run python -m policies.analysis.heartbeat_dynamics \
+    --env rware-tiny-4ag-v2 \
+    --delays 5 30 \
+    --episodes 30 --max-steps 500 \
+    --dropout-window-start 200 --dropout-window-end 350 \
+    --out runs/figures/heartbeat_dynamics.png
+
+# Live-watch mode: re-render the dashboard PNG every N seconds while
+# training is still in progress.  metrics.csv is written incrementally
+# by the trainer, so each refresh shows real partial curves.  macOS
+# Preview will reload the file in-place when it changes -- pair this
+# with `open <pilot>/dashboard.png` in Preview before you start.
+# (use runs/<pilot> for live local training; matrix_results/<pilot> for
+#  the committed snapshots.)
+uv run python -m policies.analysis.pilot_dashboard \
+    --log-dir runs/exp_pilot_v3 --watch 30
+```
+
+### Verifying the dashboard numbers
+
+Plotters can lie -- a buggy aggregation step or a miscalibrated
+statistical test can produce confidently-wrong figures.  To keep the
+plots trustworthy we ship `policies.analysis.verify_dashboard`, which
+re-derives every drawn number from independent sources and asserts
+agreement:
+
+```bash
+uv run python -m policies.analysis.verify_dashboard
+```
+
+It runs three checks:
+
+1. **Per-cell finals**: re-reads each `metrics.csv` from scratch and
+   confirms the per-seed values the dashboard exposes match a manual
+   recompute exactly (rel_tol = 1e-9).
+2. **Welch t-test**: re-runs every (regime, delay) comparison through
+   `scipy.stats.ttest_ind(equal_var=False)` and asserts the p-values
+   our plotter draws agree to within 0.03 absolute *and* land on the
+   same significance label (`ns`/`*`/`**`/`***`).
+3. **Heartbeat dynamics**: collects 20 random-policy rollouts at each
+   delay D and asserts `median(alive_age) == D` and
+   `median(dead_age) == max_age_clip`, exactly as the
+   `HeartbeatTracker` docstring predicts.
+
+This script caught a real bug (a Cornish-Fisher tail approximation in
+the in-house t-test was reporting `p = 0.022 *` for a result whose
+exact p was `0.146 ns`); the dashboards now use scipy directly.
+
+Why these three coexist with the summary plotter:
+
+* `aggregate.py` + `plot_results.py` are designed for the final
+  publication-style matrix and produce *summary* bar charts only.
+* `pilot_dashboard.py` shows the *per-update curves* and *per-seed
+  spread* you need to interpret a pilot. With n=3 seeds, the bar
+  charts hide whether a +10 gap is signal or one outlier seed.
+* `compare_pilots.py` lets two or more pilots share an x-axis (`D`),
+  which is the only way to see the *interaction* between delay and
+  comm benefit.
+* `heartbeat_dynamics.py` is mechanism-level: it does not depend on
+  any trained policy and explains *why* the comm benefit moves with D
+  by showing the alive-vs-dead age overlap directly.
 
 Metric definitions (full list in `Planning/ExperimentPlan.md`):
 
@@ -418,7 +633,11 @@ Open the URL it prints (typically <http://127.0.0.1:6006>).
 | `policies/baselines/rware_heuristic.py` | Non-learning heuristic + CLI |
 | `policies/experiments/run_rware_matrix.py` | Methods × regimes × delays × seeds runner |
 | `policies/analysis/aggregate.py` | Build per_run.csv + summary.csv |
-| `policies/analysis/plot_results.py` | Five-figure plot pipeline |
+| `policies/analysis/plot_results.py` | Five-figure summary plot pipeline |
+| `policies/analysis/pilot_dashboard.py` | Per-pilot dashboard (curves + per-seed dots + scipy Welch t-tests, with `--watch` for live re-rendering) |
+| `policies/analysis/compare_pilots.py` | Cross-pilot comparison (comm benefit vs delay D) |
+| `policies/analysis/heartbeat_dynamics.py` | Empirical alive/dead heartbeat-age distributions |
+| `policies/analysis/verify_dashboard.py` | Cross-checks dashboard outputs against the aggregator, scipy, and the analytical heartbeat prediction |
 | `policies/demo_rware_dropout.py` | Single-rollout demo (text + optional pyglet) |
 | `policies/logger.py` | CSV + TensorBoard scalar logger |
 | `policies/summarize_runs.py` | Tail-and-summarise existing runs |

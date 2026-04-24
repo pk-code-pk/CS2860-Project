@@ -29,6 +29,34 @@ Mechanism CLI flags forwarded to ``policies.train`` /
 Use ``--dry-run`` to preview the planned subprocess commands without
 launching them.
 
+Parallel dispatch
+-----------------
+
+By default the matrix runs cells **sequentially** (``--max-parallel 1``),
+which is exactly the original single-shot behaviour. Pass
+``--max-parallel N`` to run up to N cells concurrently as separate
+subprocesses. Each child's BLAS / OpenMP / Accelerate thread pool is
+capped to ``--threads-per-cell`` (default 1) so N parallel children do
+NOT oversubscribe the physical cores -- this is the standard fix for
+"embarrassingly parallel subprocess" workloads.
+
+Recommended sweet spot on an 8-core Apple Silicon laptop:
+
+    --max-parallel 3  --threads-per-cell 1
+
+Ctrl+C is handled cleanly: the runner sends SIGTERM to all in-flight
+children, gives them ``grace_seconds`` (10s) to exit, then SIGKILLs any
+survivors. A second Ctrl+C escalates immediately to SIGKILL.
+
+Production-grade eval
+---------------------
+
+The default ``--eval-every 10 --eval-episodes 3`` is intentionally
+smoke-test-y. For a real research-grade run that should produce
+publishable curves, pass ``--production-eval`` to override these to
+``eval-every=25 eval-episodes=30``. Equivalent to setting both flags
+explicitly.
+
 Usage examples
 --------------
 
@@ -36,10 +64,14 @@ Preview the full default matrix (no env launches):
 
     uv run python -m policies.experiments.run_rware_matrix --dry-run
 
-Real run on the main env, 3 seeds, default methods/regimes/delays:
+Real run on the main env, 3 seeds, default methods/regimes/delays,
+3-way parallel, production eval:
 
     uv run python -m policies.experiments.run_rware_matrix \\
-        --env rware-tiny-4ag-v2 --updates 200 --rollout 256
+        --env rware-tiny-4ag-v2 --updates 1000 --rollout 512 \\
+        --shape-rewards \\
+        --max-parallel 3 --threads-per-cell 1 \\
+        --production-eval
 
 Restrict to a subset:
 
@@ -54,12 +86,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import IO, Any
 
 
 # ---------------------------------------------------------------------------
@@ -435,31 +468,242 @@ def _write_manifest(log_dir: Path, plans: list[RunPlan], args: argparse.Namespac
     return manifest_path
 
 
-def _run_one(plan: RunPlan, log_dir: Path, *, capture: bool) -> int:
-    """Run a single plan. Returns the subprocess exit code."""
-    out_path = log_dir / plan.run_name
-    out_path.mkdir(parents=True, exist_ok=True)
-    stdout_path = out_path / "stdout.log"
+def _build_child_env(threads_per_cell: int) -> dict[str, str]:
+    """
+    Construct a subprocess env that caps numerical-library thread pools.
 
-    print(f"\n[run] {plan.run_name}")
-    print(f"      cmd: {' '.join(plan.cmd)}")
+    On macOS / Apple Silicon (and on most multi-core Linux boxes), every
+    Python child that imports numpy / torch will spin up an OpenMP /
+    Accelerate / MKL pool sized to physical cores. When we run several cells
+    in parallel that produces severe oversubscription
+    (e.g. 4 children x ~6 BLAS threads = 24 threads on an 8-core machine),
+    which actually slows total wall-clock down. Capping the per-child pool
+    to 1 thread is the standard fix for "embarrassingly parallel
+    subprocess" workloads -- we'd rather have N independent single-threaded
+    cells than N children fighting for the same cores.
 
-    if capture:
-        with stdout_path.open("w") as f:
-            f.write("$ " + " ".join(plan.cmd) + "\n\n")
-            f.flush()
-            proc = subprocess.run(
-                plan.cmd,
-                stdout=f,
-                stderr=subprocess.STDOUT,
-                check=False,
+    The returned dict is a *copy* of os.environ with the relevant variables
+    overwritten. Pass it as the ``env=`` argument to ``subprocess.Popen``.
+    """
+    env = os.environ.copy()
+    n = str(int(threads_per_cell))
+    env["OMP_NUM_THREADS"] = n
+    env["MKL_NUM_THREADS"] = n
+    env["OPENBLAS_NUM_THREADS"] = n
+    env["VECLIB_MAXIMUM_THREADS"] = n  # macOS Accelerate
+    env["NUMEXPR_NUM_THREADS"] = n
+    # PyTorch respects OMP_NUM_THREADS but also has its own knob:
+    env.setdefault("PYTORCH_NUM_THREADS", n)
+    return env
+
+
+@dataclass
+class _InFlight:
+    """Bookkeeping for a currently-running child subprocess."""
+
+    plan: RunPlan
+    popen: subprocess.Popen
+    log_handle: IO[str] | None  # open stdout file, or None for --no-capture
+    started_at: float
+
+
+class ParallelRunner:
+    """
+    Dispatch a list of RunPlans across at most ``max_parallel`` concurrent
+    subprocesses.
+
+    Why a custom class instead of ``concurrent.futures.ThreadPoolExecutor``?
+
+    * We need direct access to each child's ``Popen`` object so that a
+      Ctrl+C in the parent process can cleanly tear down all children
+      (SIGTERM, then SIGKILL after a grace period).
+    * ``futures`` would give us a Future per cell, but ``subprocess.run``
+      blocks the worker thread for the entire training run -- we'd have no
+      handle on the child to terminate it.
+
+    Sequential mode (``max_parallel == 1``) goes through exactly the same
+    code path; this keeps behaviour identical to the original
+    sequential-only runner so we don't regress when the user doesn't opt
+    into parallelism.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_parallel: int,
+        threads_per_cell: int,
+        capture: bool,
+        stop_on_error: bool,
+        grace_seconds: float = 10.0,
+    ) -> None:
+        if max_parallel < 1:
+            raise ValueError("max_parallel must be >= 1")
+        self.max_parallel = int(max_parallel)
+        self.threads_per_cell = int(threads_per_cell)
+        self.capture = bool(capture)
+        self.stop_on_error = bool(stop_on_error)
+        self.grace_seconds = float(grace_seconds)
+
+        self._in_flight: list[_InFlight] = []
+        self._results: list[tuple[str, int, float]] = []  # (run_name, rc, elapsed)
+        self._stop = False
+        self._sigint_count = 0
+        self._sigterm_sent_at: float | None = None  # wall-clock when we SIGTERM'd
+        self._t0 = 0.0
+        self._queued_count = 0
+
+    # ----- signal handling ---------------------------------------------
+    def _install_signal_handlers(self) -> None:
+        signal.signal(signal.SIGINT, self._on_signal)
+        signal.signal(signal.SIGTERM, self._on_signal)
+
+    def _on_signal(self, signum: int, frame: Any) -> None:  # noqa: ARG002
+        self._sigint_count += 1
+        self._stop = True
+        if self._sigint_count == 1:
+            self._sigterm_sent_at = time.time()
+            print(
+                f"\n[matrix] caught signal {signum}; terminating "
+                f"{len(self._in_flight)} in-flight child(ren) "
+                f"(SIGTERM, {self.grace_seconds:.0f}s grace, then SIGKILL)..."
             )
-    else:
-        proc = subprocess.run(plan.cmd, check=False)
+            for fl in list(self._in_flight):
+                try:
+                    fl.popen.terminate()
+                except ProcessLookupError:
+                    pass
+        else:
+            print("\n[matrix] second signal -- killing children NOW")
+            for fl in list(self._in_flight):
+                try:
+                    fl.popen.kill()
+                except ProcessLookupError:
+                    pass
 
-    rc = int(proc.returncode)
-    print(f"      exit={rc}")
-    return rc
+    # ----- launch / reap -----------------------------------------------
+    def _launch(self, plan: RunPlan, log_dir: Path) -> None:
+        out_path = log_dir / plan.run_name
+        out_path.mkdir(parents=True, exist_ok=True)
+        stdout_path = out_path / "stdout.log"
+        env = _build_child_env(self.threads_per_cell)
+
+        log_handle: IO[str] | None
+        if self.capture:
+            log_handle = stdout_path.open("w")
+            log_handle.write("$ " + " ".join(plan.cmd) + "\n\n")
+            log_handle.flush()
+            popen = subprocess.Popen(
+                plan.cmd,
+                stdout=log_handle,
+                stderr=subprocess.STDOUT,
+                env=env,
+            )
+        else:
+            log_handle = None
+            popen = subprocess.Popen(plan.cmd, env=env)
+
+        fl = _InFlight(plan=plan, popen=popen, log_handle=log_handle, started_at=time.time())
+        self._in_flight.append(fl)
+        print(
+            f"[start] {plan.run_name}  pid={popen.pid}  "
+            f"in_flight={len(self._in_flight)}/{self.max_parallel}  "
+            f"queued={self._queued}  done={len(self._results)}"
+        )
+
+    def _try_reap_one(self, *, blocking: bool) -> bool:
+        """
+        Try to reap one finished child. Returns True if one was reaped.
+
+        If ``blocking=True`` and there is at least one in-flight child, this
+        will spin-poll until something finishes (or all are killed by a
+        signal handler). The poll interval is 0.25s -- high enough that the
+        overhead is negligible vs. multi-minute training runs but low
+        enough that progress lines feel responsive.
+        """
+        if not self._in_flight:
+            return False
+        while True:
+            for i, fl in enumerate(self._in_flight):
+                rc = fl.popen.poll()
+                if rc is not None:
+                    self._finish(i, int(rc))
+                    return True
+            if not blocking:
+                return False
+            # If a signal is asking us to stop and the children won't die
+            # within grace_seconds, escalate to SIGKILL.
+            if self._stop:
+                self._maybe_force_kill()
+            time.sleep(0.25)
+
+    def _finish(self, idx: int, rc: int) -> None:
+        fl = self._in_flight.pop(idx)
+        elapsed = time.time() - fl.started_at
+        if fl.log_handle is not None:
+            try:
+                fl.log_handle.close()
+            except Exception:
+                pass
+        self._results.append((fl.plan.run_name, rc, elapsed))
+        wall = time.time() - self._t0
+        status = "ok " if rc == 0 else "FAIL"
+        print(
+            f"[done ] {fl.plan.run_name}  exit={rc} ({status})  "
+            f"cell_elapsed={elapsed:6.1f}s  wall={wall:6.1f}s  "
+            f"in_flight={len(self._in_flight)}/{self.max_parallel}  "
+            f"queued={self._queued}  done={len(self._results)}"
+        )
+
+    def _maybe_force_kill(self) -> None:
+        """If we already SIGTERM'd and grace period has elapsed, SIGKILL."""
+        if self._sigterm_sent_at is None:
+            return
+        elapsed_since_sigterm = time.time() - self._sigterm_sent_at
+        if elapsed_since_sigterm > self.grace_seconds or self._sigint_count >= 2:
+            for fl in list(self._in_flight):
+                try:
+                    fl.popen.kill()
+                except ProcessLookupError:
+                    pass
+
+    # ----- top-level loop ----------------------------------------------
+    @property
+    def _queued(self) -> int:
+        return self._queued_count
+
+    def run(self, plans: list[RunPlan], log_dir: Path) -> tuple[int, list[tuple[str, int]]]:
+        """
+        Run all plans. Returns (n_successes, [(run_name, rc) for each failure]).
+        """
+        self._install_signal_handlers()
+        self._t0 = time.time()
+        self._queued_count = len(plans)
+
+        for plan in plans:
+            if self._stop:
+                break
+            # Wait for a slot.
+            while len(self._in_flight) >= self.max_parallel:
+                self._try_reap_one(blocking=True)
+                if self.stop_on_error and self._results and self._results[-1][1] != 0:
+                    print(
+                        f"[matrix] --stop-on-error set; aborting after "
+                        f"{self._results[-1][0]} (exit={self._results[-1][1]})"
+                    )
+                    self._stop = True
+                    break
+            if self._stop:
+                break
+            self._queued_count -= 1
+            self._launch(plan, log_dir)
+
+        # Drain whatever is left.
+        while self._in_flight:
+            self._try_reap_one(blocking=True)
+
+        successes = sum(1 for _, rc, _ in self._results if rc == 0)
+        failures = [(name, rc) for name, rc, _ in self._results if rc != 0]
+        return successes, failures
 
 
 # ---------------------------------------------------------------------------
@@ -539,16 +783,49 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--dry-run", action="store_true",
                    help="Print plans and exit; do not launch subprocesses.")
     p.add_argument("--no-capture", action="store_true",
-                   help="Stream subprocess output to stdout instead of capturing to file.")
+                   help="Stream subprocess output to stdout instead of capturing to file. "
+                        "With --max-parallel > 1 this produces interleaved output; "
+                        "prefer the default (capture per cell) when running in parallel.")
     p.add_argument("--stop-on-error", action="store_true",
                    help="Abort the matrix on the first non-zero subprocess exit.")
     p.add_argument("--limit", type=int, default=None,
                    help="Run only the first N planned entries (smoke test).")
+    p.add_argument("--max-parallel", type=int, default=1,
+                   help="Max number of cells to run concurrently as subprocesses. "
+                        "Default 1 (sequential, byte-equivalent to the original "
+                        "single-shot behaviour). On an 8-core Apple Silicon laptop, "
+                        "3-4 is the typical sweet spot when --threads-per-cell=1.")
+    p.add_argument("--threads-per-cell", type=int, default=1,
+                   help="OMP / MKL / Accelerate thread cap injected into each "
+                        "child subprocess. Keep at 1 when running with "
+                        "--max-parallel > 1 to avoid BLAS oversubscription on "
+                        "multi-core CPUs. Increase only if you're running a "
+                        "single cell (max-parallel=1) on a machine where you "
+                        "want BLAS to use all cores for that cell.")
+    p.add_argument("--production-eval", action="store_true",
+                   help="Convenience flag: overrides --eval-every and "
+                        "--eval-episodes with production-grade values "
+                        "(eval-every=25, eval-episodes=30) so eval noise stops "
+                        "dominating the per-cell signal. Equivalent to passing "
+                        "--eval-every 25 --eval-episodes 30 explicitly.")
     return p.parse_args()
 
 
 def main() -> None:
+    # Force line-buffered stdout so [matrix] / [start] / [done] lines flush
+    # immediately when stdout is redirected to a file (e.g. backgrounded
+    # via nohup / `&`). Without this, Python block-buffers stdout in
+    # non-tty mode and the runner appears silent for minutes at a time
+    # even though it's working fine.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except Exception:
+        pass
+
     args = _parse_args()
+    if args.production_eval:
+        args.eval_every = 25
+        args.eval_episodes = 30
     methods = [METHODS[m] for m in args.methods]
     regimes = [REGIMES[r] for r in args.regimes]
 
@@ -568,6 +845,16 @@ def main() -> None:
     print(f"[matrix] env={args.env}")
     print(f"[matrix] {len(plans)} planned run(s) -> {log_dir}")
     print(f"[matrix] manifest: {manifest}")
+    print(
+        f"[matrix] dispatch: max_parallel={args.max_parallel}  "
+        f"threads_per_cell={args.threads_per_cell}  "
+        f"capture={'on' if not args.no_capture else 'off'}"
+    )
+    if args.production_eval:
+        print(
+            f"[matrix] --production-eval: eval_every={args.eval_every}  "
+            f"eval_episodes={args.eval_episodes}"
+        )
     by_method: dict[str, int] = {}
     for p in plans:
         by_method[p.method.name] = by_method.get(p.method.name, 0) + 1
@@ -581,19 +868,22 @@ def main() -> None:
             print(f"    {' '.join(plan.cmd)}")
         return
 
-    successes = 0
-    failures: list[tuple[str, int]] = []
-    t0 = time.time()
-    for plan in plans:
-        rc = _run_one(plan, log_dir, capture=not args.no_capture)
-        if rc == 0:
-            successes += 1
-        else:
-            failures.append((plan.run_name, rc))
-            if args.stop_on_error:
-                print(f"[matrix] stopping early after {plan.run_name} (exit={rc})")
-                break
+    if args.no_capture and args.max_parallel > 1:
+        print(
+            "[matrix] WARNING: --no-capture + --max-parallel > 1 produces "
+            "interleaved subprocess output. Per-cell logs will NOT be "
+            "written to runs/<dir>/<cell>/stdout.log. Consider dropping "
+            "--no-capture if you want clean per-cell logs."
+        )
 
+    runner = ParallelRunner(
+        max_parallel=args.max_parallel,
+        threads_per_cell=args.threads_per_cell,
+        capture=not args.no_capture,
+        stop_on_error=args.stop_on_error,
+    )
+    t0 = time.time()
+    successes, failures = runner.run(plans, log_dir)
     elapsed = time.time() - t0
     print(
         f"\n[matrix] done in {elapsed:.1f}s "
