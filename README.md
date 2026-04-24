@@ -366,6 +366,33 @@ uv run python -m policies.baselines.rware_heuristic \
 Writes the same `metrics.csv` schema as MAPPO so the aggregator/plotter can
 treat it uniformly.
 
+### Running the hierarchical (paper-faithful) baseline
+
+On branch `feature/hrl-paper-baseline` there is a separate, paper-inspired
+hierarchical baseline under `policies/hierarchical/` implementing
+**Cooperative-HRL** and **COM-Cooperative-HRL** in the spirit of
+Ghavamzadeh, Mahadevan and Makar,
+*"Hierarchical Multi-Agent Reinforcement Learning."* It is deliberately
+distinct from the MAPPO pipeline: a tabular SMDP Q-learner selects
+**cooperative subtasks** at option boundaries while primitive motion is
+driven by a hand-coded low-level executor. The `--comm` flag toggles the
+communication-aware variant (subtask broadcast at every boundary).
+
+```bash
+# Smoke test on the 2-agent debug env.
+uv run python -m policies.hierarchical.train \
+    --env rware-tiny-2ag-easy-v2 --episodes 40 \
+    --max-steps 500 --run-name hrl-paper-smoke-2ag-easy
+
+# Main env, COM-Cooperative-HRL variant.
+uv run python -m policies.hierarchical.train \
+    --env rware-tiny-4ag-v2 --episodes 300 --max-steps 500 \
+    --comm --run-name hrl-paper-comm-main-4ag
+```
+
+See [`policies/hierarchical/README.md`](policies/hierarchical/README.md) for
+the full paper-to-code mapping and the list of approximations/omissions.
+
 ---
 
 ## Running the experiment matrix
