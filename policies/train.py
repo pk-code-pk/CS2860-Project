@@ -85,6 +85,16 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--heartbeat-delay", type=int, default=0,
                    help="Heartbeats arrive N steps after they were produced.")
 
+    # --- Oracle-ceiling experiment: defeat the message-channel no-oracle invariant ---
+    p.add_argument("--disable-message-echo", action="store_true",
+                   help="Disable the 'dead agents echo their last message' "
+                        "behavior. With this flag, dead agents emit all-zero "
+                        "message vectors, which is a trivial dropout oracle "
+                        "for the receiver (row.sum() == 0 iff dead). Used "
+                        "for the oracle-ceiling experiment that bounds how "
+                        "much any comm method could possibly rescue dropout; "
+                        "NOT a production training flag.")
+
     # --- Optional reward shaping (RWARE only) ---
     p.add_argument("--shape-rewards", action="store_true",
                    help="(RWARE only) add a small bonus on requested-shelf "
@@ -137,6 +147,7 @@ def main() -> None:
         n_msg_tokens=n_msg_tokens,
         dropout_cfg=dropout_cfg,
         heartbeat_cfg=heartbeat_cfg,
+        disable_message_echo=args.disable_message_echo,
         **adapter_kwargs,
     )
     spec = env.spec

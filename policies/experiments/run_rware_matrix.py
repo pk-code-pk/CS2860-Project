@@ -183,6 +183,7 @@ def _build_train_cmd(
     shape_rewards: bool,
     pickup_bonus: float,
     step_penalty: float,
+    disable_message_echo: bool,
 ) -> tuple[list[str], dict[str, Any]]:
     cmd: list[str] = [
         python,
@@ -249,6 +250,14 @@ def _build_train_cmd(
         used["shape_rewards"] = True
         used["pickup_bonus"] = pickup_bonus
         used["step_penalty"] = step_penalty
+
+    # Oracle-ceiling experiment: only meaningful for methods with a real
+    # comm channel (comm=True), since it changes the behavior of the
+    # message vector. Forwarded unconditionally when requested; for
+    # no-comm cells it's a no-op (dead rows are zero either way).
+    if disable_message_echo:
+        cmd.append("--disable-message-echo")
+        used["disable_message_echo"] = True
 
     if save_dir is not None:
         save_path = str(Path(save_dir) / f"{run_name}.pt")
@@ -402,6 +411,7 @@ def build_plans(
                             shape_rewards=args.shape_rewards,
                             pickup_bonus=args.pickup_bonus,
                             step_penalty=args.step_penalty,
+                            disable_message_echo=args.disable_message_echo,
                         )
                     elif method.kind == "heuristic":
                         cmd, used = _build_heuristic_cmd(
@@ -777,6 +787,17 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--step-penalty", type=float, default=0.0,
                    help="Per-step penalty passed to MAPPO when --shape-rewards "
                         "is on (0 disables).")
+
+    # Oracle-ceiling experiment (see docs/PROGRESS_REPORT.md §6, and the
+    # `--disable-message-echo` flag in policies/train.py).
+    p.add_argument("--disable-message-echo", action="store_true",
+                   help="Forward --disable-message-echo to every MAPPO cell. "
+                        "Dead agents emit all-zero messages instead of "
+                        "echoing their last one-hot, creating a perfect "
+                        "dropout oracle through the message channel. Used "
+                        "for the oracle-ceiling experiment that bounds how "
+                        "much any comm method could possibly rescue dropout. "
+                        "NOT a production flag.")
 
     # Output / dispatch
     p.add_argument("--log-dir", default="runs/exp_matrix")

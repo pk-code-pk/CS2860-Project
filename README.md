@@ -9,10 +9,10 @@ status" and "teammate has died" into a deliberately ambiguous distinction.
 > heartbeat**, particularly in the regime where both delay and dropout are
 > present?
 
-This branch (`feature/rware-ambiguity-mechanism`) is the **fully integrated**
-version: wrapper-level dropout/heartbeat mechanism, all four study methods,
-the experiment matrix runner, the analysis/plot pipeline, and the demo
-rollout (with optional pyglet window).
+`main` contains the **fully integrated** version: wrapper-level
+dropout/heartbeat mechanism, all four study methods, the experiment matrix
+runner, the analysis/plot pipeline, and the demo rollout (with optional
+pyglet window). Active development continues on `feature/dial-grounded-comm`.
 
 > **Looking for the research overview?** Read [`OVERVIEW.md`](OVERVIEW.md).
 > It explains the scientific question, the mechanism, the four
@@ -21,11 +21,67 @@ rollout (with optional pyglet window).
 > CLI / commands reference; `OVERVIEW.md` is the research-and-paper
 > companion. For per-experiment provenance and "read these numbers
 > carefully" caveats see [`matrix_results/README.md`](matrix_results/README.md).
+> For a month-by-month, decision-by-decision account of how we got here
+> (results, null findings, and the channel-grounding diagnostic) see
+> [`docs/PROGRESS_REPORT.md`](docs/PROGRESS_REPORT.md).
+
+---
+
+## Latest findings (April 2026)
+
+**Most recent pooled result:** `smoke_small_v1_pooled` (n=4, `rware-small-4ag-v2`,
+D=30, PK seeds 0–1 + Sam 2–3). See
+[`matrix_results/smoke_small_v1_pooled/`](matrix_results/smoke_small_v1_pooled/)
+for raw data and
+[`docs/PROGRESS_REPORT.md`](docs/PROGRESS_REPORT.md) §3.4–3.5 for the full
+writeup. Headline numbers:
+
+| cell                       | train mean | eval mean |
+|----------------------------|-----------:|----------:|
+| hb-only, delay-only        |      218.4 |      67.8 |
+| hb-only, delay-dropout     |      213.4 |      62.6 |
+| hb+comm, delay-only        |      239.3 |      63.5 |
+| hb+comm, delay-dropout     |      178.4 |      47.6 |
+
+**Key finding — the communication channel never grounded.** Across every
+`hb+comm` cell, the message-token distribution stays at 77–98% of
+uniform-random throughout training. The action head learned, but the
+message head effectively never left noise. This is the textbook "RIAL
+fails to ground discrete comm under policy-gradient training" failure
+mode (Foerster et al. 2016); see
+[`matrix_results/smoke_small_v1_pooled/diagnostics/per_seed_dynamics.png`](matrix_results/smoke_small_v1_pooled/diagnostics/per_seed_dynamics.png).
+
+**Null on the original hypothesis.** The hypothesized interaction
+(comm helps more under dropout than under delay-only) has moved from
+**+12.5** at n=3 tiny → **+3.7 / −12.8** at n=6 tiny → **−56 / −11** at
+n=4 small across three pilot generations. Never statistically significant.
+
+**Reframed hypothesis (for the paper).** The dead-agent message echo
+(see [no-oracle invariants](#no-oracle-invariants)) means the heartbeat
+already provides death detection — comm's unique value over it is
+*semantic context during life* (what a teammate is doing, not just
+whether they are alive). This is a sharper and more defensible framing
+than the original "comm disambiguates dropout from lag."
+
+**Next steps.** Two cheap ceiling/headroom experiments before committing
+to the DIAL implementation on `feature/dial-grounded-comm`:
+
+1. **Heartbeat-delay scan** (`hb-only × {delay-only, delay-dropout} × D ∈ {30, 60, 100}`) —
+   measures whether the ambiguity window actually costs the team reward.
+2. **Oracle-leak ceiling** (`hb+comm × delay-dropout × --disable-message-echo`) —
+   gives the team a perfect death signal via messages, bounding the
+   maximum possible benefit of any grounded comm method.
+3. **Per-component entropy logging** (`comm/msg_entropy_mean`,
+   `comm/msg_kl_to_uniform`) so future runs auto-diagnose grounding.
+4. **DIAL** (Gumbel-Softmax + same-step + drop `logp_msg` from PPO),
+   gated on the outcome of steps 1–2. Full plan:
+   [`docs/PROGRESS_REPORT.md`](docs/PROGRESS_REPORT.md) §6.
 
 ---
 
 ## Table of contents
 
+0. [Latest findings (April 2026)](#latest-findings-april-2026)
 1. [Setup](#setup)
 2. [Quick start](#quick-start)
 3. [Conceptual overview](#conceptual-overview)
@@ -693,8 +749,10 @@ claim the figures are designed to make falsifiable.
 
 ## Branch context
 
-This is `feature/rware-ambiguity-mechanism` — the integrated branch combining
-the original baseline + comm pipeline, the wrapper-level dropout/heartbeat
-mechanism, the heuristic baseline, the experiment matrix runner, the
-analysis/plot pipeline, and the demo. `main` does not yet have these
-components; merging is the user's call.
+`main` now contains the integrated pipeline (baseline + comm, dropout +
+heartbeat mechanism, heuristic baseline, matrix runner, analysis/plots,
+demo, and all pilot results through `smoke_small_v1_pooled`). Active
+development continues on `feature/dial-grounded-comm`, which tracks the
+delay scan, the oracle-leak experiment, per-component entropy logging,
+and the DIAL (Gumbel-Softmax) implementation planned in
+[`docs/PROGRESS_REPORT.md`](docs/PROGRESS_REPORT.md) §6.

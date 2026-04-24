@@ -186,6 +186,7 @@ class UnifiedMARLEnv:
         zero_obs_on_death: bool = True,
         dropout_cfg: DropoutConfig | None = None,
         heartbeat_cfg: HeartbeatConfig | None = None,
+        disable_message_echo: bool = False,
     ):
         self.adapter = adapter
         self.n_msg_tokens = int(n_msg_tokens)
@@ -195,6 +196,14 @@ class UnifiedMARLEnv:
                 "Use n_msg_tokens=1 to disable the comm channel via the --no-comm ablation."
             )
         self.zero_obs_on_death = bool(zero_obs_on_death)
+        # Oracle-ceiling experiment knob. When True, dead agents emit an
+        # all-zero message vector instead of echoing their last one-hot,
+        # which lets the receiver detect dropout trivially (row.sum() == 0).
+        # This intentionally defeats the message-channel no-oracle invariant
+        # and is only meant to be used when you want to *measure* the ceiling
+        # of what perfect-death-detection comm could achieve; no production
+        # training should use this flag.
+        self.disable_message_echo = bool(disable_message_echo)
 
         self.dropout_cfg = dropout_cfg or DropoutConfig()
         self.heartbeat_cfg = heartbeat_cfg or HeartbeatConfig()
@@ -319,7 +328,14 @@ class UnifiedMARLEnv:
         # all-zeros would be a perfect dropout oracle, which would defeat
         # the central "stale vs gone" ambiguity that the heartbeat channel
         # is supposed to be the only signal for).
-        messages = self._last_messages.copy()
+        #
+        # With ``disable_message_echo=True`` (oracle-ceiling experiment) we
+        # deliberately skip the echo: dead rows stay all-zeros, giving the
+        # receiver a perfect dropout oracle through the message channel.
+        if self.disable_message_echo:
+            messages = np.zeros_like(self._last_messages)
+        else:
+            messages = self._last_messages.copy()
         alive_rows = np.where(new_alive)[0]
         tokens = np.clip(msg_tokens[alive_rows], 0, self.n_msg_tokens - 1)
         messages[alive_rows] = 0.0
@@ -437,6 +453,7 @@ def make_unified_env(
     seed: int | None = None,
     dropout_cfg: DropoutConfig | None = None,
     heartbeat_cfg: HeartbeatConfig | None = None,
+    disable_message_echo: bool = False,
     **adapter_kwargs: Any,
 ) -> UnifiedMARLEnv:
     """
@@ -458,6 +475,7 @@ def make_unified_env(
         n_msg_tokens=n_msg_tokens,
         dropout_cfg=dropout_cfg,
         heartbeat_cfg=heartbeat_cfg,
+        disable_message_echo=disable_message_echo,
     )
     if seed is not None:
         env.reset(seed=seed)
