@@ -1,0 +1,291 @@
+\documentclass[conference,onecolumn]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+\urlstyle{same}
+
+\title{Preliminary Report: Learned Communication Under Heartbeat Delay and Teammate Dropout in Cooperative MARL}
+
+\author{\IEEEauthorblockN{Sam Chen}
+\IEEEauthorblockA{\textit{Harvard University}\\
+Cambridge, MA, USA\\
+Course: CS 2860 (Multi-Agent Systems)}
+\and
+\IEEEauthorblockN{Praneel Khiantani}
+\IEEEauthorblockA{\textit{Harvard University}\\
+Cambridge, MA, USA\\
+Course: CS 2860 (Multi-Agent Systems)}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We study cooperative multi-agent reinforcement learning (MARL) under delayed heartbeat observations and optional teammate dropout, asking whether learned discrete communication can disambiguate ``dead'' from ``merely slow'' better than observation alone. We summarize the experimental stack (MAPPO, RIAL-style messages, Robotic Warehouse), our difference-in-differences hypothesis, results across \texttt{tiny} and \texttt{small} maps, and a channel-grounding diagnostic. The interaction effect we care about is not supported at current $n$; training and eval metrics disagree where reward shaping is used; and message entropy suggests an ungrounded communication channel under naive policy-gradient training.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Multi-agent reinforcement learning, learned communication, heartbeat delay, teammate dropout, Robotic Warehouse, MAPPO, RIAL
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+\subsection{Project evolution}
+
+Our original direction followed \emph{Hierarchical Multi-Agent Reinforcement Learning}, which introduces Cooperative-HRL and Com-Cooperative HRL. We stepped back from that line for two reasons: (1)~we wanted a \textbf{generalized} approach usable across multiple environments, which made a heavy \textbf{graph-based} formulation---encoding tasks or options as explicit graphs---less attractive for rapid iteration; (2)~several problems we cared about did not require hierarchical structure (no natural subgoal decomposition), so we \textbf{pivoted to cooperative MARL} and focused on \textbf{learned communication} under partial observability and unreliable teammate signals. The scientific core stayed the same in spirit---\emph{how should agents coordinate when their information about others is imperfect?}---but the algorithm class moved from hierarchical policies to flat MAPPO with an explicit comm channel.
+
+\subsection{The problem: liveness ambiguity}
+
+In cooperative MARL with imperfect liveness information, can a learned communication channel help agents distinguish \textbf{true teammate dropout} from \textbf{merely stale status} better than observation alone?
+
+The analogy to distributed systems is direct. A worker that stops sending heartbeats may have \emph{crashed}---so work should be reassigned---or may be \emph{alive but slow}---so reassignment wastes capacity or breaks consistency. Acting optimally requires inferring hidden state (alive vs.\ dead) from delayed, lossy signals. Pure observation from the environment rarely labels ``this teammate is irrecoverably gone''; agents see consequences (no motion, stale features) that could mean several things.
+
+We operationalize this tension in \textbf{Robotic Warehouse} (RWARE): partially observable grid navigation, sparse team reward for deliveries, and our wrapper adds (i)~delayed heartbeat delivery, (ii)~optional permanent dropout mid-episode, and (iii)~optional discrete messages on top of MAPPO.
+
+\subsection{What we isolate with two regimes}
+
+Two regimes hold the algorithm fixed and change only whether dropout can occur:
+
+\begin{description}
+  \item[\textbf{\texttt{delay-only} (DO)}] Heartbeats arrive $D$ steps late; no agent dies. ``Silence'' is always explained by lag---there is no hidden death to infer.
+  \item[\textbf{\texttt{delay-dropout} (DD)}] Same delay, but one agent may permanently die in a random mid-episode window. For roughly $D$ steps after death, heartbeats that were already in flight still arrive, so recipients can see \textbf{fresh-looking ages} that are indistinguishable from a slow-but-alive teammate. Only later do ages drift in a way that reveals death.
+\end{description}
+
+Thus DD is the only regime where distinguishing lag from death is \emph{necessary} for optimal team behavior; DO is a control where comm might still help coordination generically, but not because of dropout \emph{per se}.
+
+\subsection{Central hypothesis: interaction, not raw comm gain}
+
+Let hb-only and hb+comm denote heartbeat-only vs.\ heartbeat + learned messages. A raw comparison ``does comm raise return under DD?'' mixes (a)~generic comm benefits with (b)~comm-specific rescue when ambiguity is real. We therefore test an \textbf{interaction} (difference-in-differences): communication should help \emph{more} when dropout is possible than when only delay is present:
+\begin{equation*}
+\Delta_{\text{comm-rescue}}
+= \bigl(R_{\text{hb+comm,DD}} - R_{\text{hb-only,DD}}\bigr)
+- \bigl(R_{\text{hb+comm,DO}} - R_{\text{hb-only,DO}}\bigr)
+\end{equation*}
+A positive $\Delta_{\text{comm-rescue}}$ means comm's \emph{incremental} value is larger in DD than in DO---i.e.\ it specifically addresses dropout-driven ambiguity, not just ``messages help everywhere.''
+
+\section{Experimental apparatus}
+
+\subsection{Environments: \texttt{tiny} vs.\ \texttt{small}}
+
+We use \texttt{rware-tiny-4ag-v2} (11$\times$11, four agents, crowded) for the main v3/v4 pilots, and \texttt{rware-small-4ag-v2} (11$\times$20) for \texttt{smoke\_small\_v1}. The \texttt{tiny} map exhibits a \textbf{crowding artifact}: removing one agent reduces shelf and corridor contention, so eval return can \emph{rise} under dropout even though the task is objectively harder in terms of team capacity. The larger map reduces that confound so dropout is closer to a pure capacity shock.
+
+\subsection{Heartbeat and dropout mechanism}
+
+Heartbeats are emitted every step and arrive at other agents after $D$ steps (queued ``in flight''). Observations include \textbf{heartbeat-age} features derived from time since last received heartbeat per sender.
+
+\textbf{Crucial property:} if a sender dies, heartbeats already queued still deliver on schedule. For a window after death, recipients therefore see ages consistent with ``slow but alive''---the \textbf{ambiguity window}. With $D{=}30$, ages in a middle band can correspond to either lag or recent death; only longer-run growth of age resolves the distinction.
+
+\textbf{Dropout.} In DD, at each reset we sample a death time in $[200,350)$ and a victim agent. After death, the agent takes no actions and emits no new heartbeats; rewards for dead agents are zeroed and the critic receives the true \texttt{alive} mask (see below).
+
+\textbf{Message channel and oracle avoidance.} Earlier designs leaked dropout through all-zero message vectors; dead agents now echo their last emitted discrete token so teammates cannot detect death in one step from message shape alone---only delayed heartbeat logic carries ambiguity.
+
+\subsection{Algorithm: MAPPO, CTDE, RIAL-style comm}
+
+We use \textbf{MAPPO}: parameter-shared actor, \textbf{centralized critic} (CTDE). The critic sees joint observations and the true \textbf{alive} mask; the \textbf{actor does not}. That mirrors execution in the real world: policies must act from local (delayed) evidence, while training may use privileged information for stable credit assignment.
+
+hb+comm adds an 8-token discrete \textbf{message head} sampled each step. Training follows \textbf{RIAL}-style credit: there is no differentiable path from receiver loss to sender message logits; both heads are updated through the team return via PPO. That choice is standard but known to make \textbf{grounding} discrete symbols difficult---the diagnostic section returns to this.
+
+\subsection{Reward shaping vs.\ headline eval}
+
+RWARE's delivery reward is sparse; we add a small bonus for picking up a \emph{currently requested} shelf (same for all methods). Training optimizes this \textbf{shaped} objective. Reported \textbf{eval} uses unshaped delivery return (dashboard: mean of last 10 non-NaN eval checkpoints). Thus train and eval need not move together: comm can inflate pickups without increasing deliveries, producing a \textbf{shaping--eval gap}.
+
+\subsection{Evaluation protocol and pooling}
+
+Default cheap eval (\texttt{eval\_episodes=3}) is dominated by sampling noise for sparse rewards. \textbf{Production eval} (\texttt{eval\_every=25}, \texttt{eval\_episodes=30}) tightens error bars substantially. Train summaries use the last 50 update points; eval summaries use the last 10 eval points (matching \texttt{pilot\_dashboard}).
+
+We pool runs across machines (PK vs.\ SAM) with disjoint seed ranges after \texttt{pool\_runs} verifies config equality---necessary because MARL variance is seed-heavy and single-machine $n$ is often too small.
+
+\section{Experimental setup}
+
+All MAPPO cells: 1000 updates, rollout 512, $D{=}30$, shaped training as above. We ran:
+
+\begin{itemize}
+  \item \textbf{v3} ($n{=}6$, \texttt{eval\_episodes=3}): cheap eval; ordering across cells unreliable.
+  \item \textbf{v4 PK-only} ($n{=}3$, \texttt{eval\_episodes=30}): \texttt{--production-eval}.
+  \item \textbf{v4 pooled} ($n{=}6$): PK seeds 0--2 + SAM seeds 3--5, config-verified --- headline on \texttt{tiny}.
+  \item \textbf{smoke\_small\_v1 pooled} ($n{=}4$): same $2{\times}2$ design on \texttt{rware-small-4ag-v2} (PK + SAM pooled).
+\end{itemize}
+
+\section{Results}
+
+\subsection{v3 and v4 on \texttt{rware-tiny-4ag-v2}}
+
+Table~\ref{tab:v3} (v3, noisy eval). Tables~\ref{tab:train}--\ref{tab:eval} (v4 pooled, $n{=}6$, 30 eval episodes per checkpoint).
+
+\begin{table}[!t]
+\centering
+\small
+\caption{v3 pilot, $n{=}6$, \texttt{eval\_episodes=3}. Eval variance is too high for firm cross-cell ordering.}
+\label{tab:v3}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Method} & \textbf{Regime} & \textbf{Train} & \textbf{Eval (last 5)} & \textbf{Eval SEM} \\
+\midrule
+hb-only  & delay-only    & $298.3 \pm 58.4$ & 99.2  & 19.0 \\
+hb-only  & delay-dropout & $212.8 \pm 49.2$ & 108.5 & 11.3 \\
+hb+comm  & delay-only    & $265.8 \pm 96.7$ & 92.1  & 7.8  \\
+hb+comm  & delay-dropout & $270.2 \pm 104.2$ & 113.2 & 11.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!t]
+\centering
+\small
+\caption{Training return (shaped), v4 pooled $n{=}6$. Comm benefit: $+20.5$ (DO), $+24.2$ (DD). Interaction: $+3.7$, $p{=}0.82$.}
+\label{tab:train}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Method} & \textbf{Regime} & \textbf{Mean} & \textbf{SEM} & \textbf{Welch $p$} \\
+\midrule
+hb-only  & delay-only    & 253.6 & 7.7 & \multirow{2}{*}{0.077} \\
+hb+comm  & delay-only    & 274.1 & 7.0 & \\
+\midrule
+hb-only  & delay-dropout & 234.6 & 7.9 & \multirow{2}{*}{0.030*} \\
+hb+comm  & delay-dropout & 258.7 & 4.8 & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!t]
+\centering
+\small
+\caption{Eval return (unshaped), v4 pooled $n{=}6$. Comm benefit: $-0.2$ (DO), $-13.0$ (DD). Interaction: $-12.8$.}
+\label{tab:eval}
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{Method} & \textbf{Regime} & \textbf{Mean} & \textbf{SEM} & \textbf{Welch $p$} \\
+\midrule
+hb-only  & delay-only    & 84.9 & 2.1 & \multirow{2}{*}{0.94} \\
+hb+comm  & delay-only    & 84.6 & 2.6 & \\
+\midrule
+hb-only  & delay-dropout & 96.3 & 4.7 & \multirow{2}{*}{0.10} \\
+hb+comm  & delay-dropout & 83.3 & 5.4 & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+On \texttt{tiny}, dropout still \emph{hurts} \textbf{training} return (${\sim}10\%$) for both methods---the manipulation is working. \textbf{Eval} can nevertheless show DD easier than DO because removing one of four agents reduces collisions; that \textbf{crowding artifact} is environmental, not evidence that dropout is ``easy.''
+
+Interpreting v4: hb+comm improves \textbf{shaped train} in both DO and DD with a modest positive interaction ($+3.7$), far from significance. \textbf{Eval} shows no comm benefit and a negative interaction. So the headline story depends on whether one trusts shaped throughput vs.\ unshaped deliveries---we report both and do not cherry-pick.
+
+\subsection{Trajectory of the interaction effect}
+
+\begin{table}[!t]
+\centering
+\small
+\caption{Interaction $=$ (comm benefit under DD) $-$ (comm benefit under DO). The positive PK-only estimate did not survive more seeds; on \texttt{small} the point estimate turns strongly negative (not significant at $n{=}4$).}
+\label{tab:interaction}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Setting} & \textbf{$n$} & \textbf{Train interaction} & \textbf{Eval interaction} \\
+\midrule
+v4 tiny (PK only)   & 3 & $+12.5$ & $+1.2$ \\
+v4 tiny pooled      & 6 & $+3.7$  & $-12.8$ \\
+\texttt{smoke\_small\_v1} pooled & 4 & $-56.0$ & $-10.7$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The trajectory matters methodologically: a promising interaction at $n{=}3$ \textbf{collapsed} with more seeds, then moved \textbf{strongly negative} on a less confounded map. That pattern is consistent with high-variance MARL, underpowered pilots, and/or an ungrounded comm channel---not with a stable ``comm rescues dropout'' effect at current scale.
+
+\subsection{Pooled pilot on \texttt{rware-small-4ag-v2} (\texttt{smoke\_small\_v1}, $n{=}4$)}
+
+We repeated the same $2{\times}2$ design on the larger map to \textbf{reduce crowding}: with more space, freezing one agent no longer reliably helps the survivors via fewer collisions. Pooling uses PK seeds 0--1 and SAM seeds 2--3 with \texttt{--production-eval}, merged via the same config-checked \texttt{pool\_runs} workflow as v4.
+
+Figure~\ref{fig:smoke_small} follows the usual \texttt{pilot\_dashboard} layout. \textbf{Top row:} per-seed \emph{training} return (shaped) vs.\ env steps for delay-only (left) and delay-dropout (right); blue $=$ hb-only, red $=$ hb+comm, shaded band $=$ $\pm1\sigma$ across seeds. \textbf{Middle row:} \emph{eval} return (unshaped deliveries) vs.\ steps. \textbf{Bottom row:} summary bars: mean of the last 10 eval checkpoints, individual seeds as dots, Welch $p$-values for hb+comm minus hb-only within each regime. The \textbf{header} repeats the two comm deltas (delay-only vs.\ delay-dropout) and the \textbf{interaction} (drop $-$ only). On \texttt{small}, the interaction point estimate is strongly negative (Table~\ref{tab:interaction}); the figure makes clear that hb+comm under dropout is especially unstable (wide train curves, weak eval), so $n{=}4$ is underpowered but the \emph{direction} is not supportive of the original hypothesis.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{dashboard_smoke_small_v1.png}
+  \caption{\texttt{smoke\_small\_v1} pooled on \texttt{rware-small-4ag-v2} ($n{=}4$, $D{=}30$, production eval). Same dashboard convention as Figs.~\ref{fig:v3}--\ref{fig:v4pooled}. Compare train panels: hb+comm under delay-dropout (top right) is much noisier than hb-only. Compare eval bars: comm does not outperform hb-only; interaction header is negative.}
+  \label{fig:smoke_small}
+\end{figure}
+
+\subsection{Channel-grounding diagnostic: per-seed returns and entropy}
+
+For hb+comm, the scalar \texttt{loss/entropy} in \texttt{metrics.csv} sums \textbf{action} entropy plus \textbf{message} entropy (hb-only logs action entropy only). Subtracting hb-only action entropy in the same regime yields an estimate of message entropy. Across hb+comm cells on \texttt{small}, the implied message distribution stays at \textbf{roughly 77--98\%} of the uniform-random maximum over 8 tokens---the channel remains nearly ungrounded, consistent with the classic \textbf{RIAL failure mode} under policy-gradient training~\cite{foerster2016learning}.
+
+Figure~\ref{fig:per_seed} summarizes training dynamics. \textbf{Top row (four panels):} one panel per $(\text{method}, \text{regime})$---hb-only delay-only, hb-only delay-dropout, hb+comm delay-only, hb+comm delay-dropout---each showing all four seeds' shaped training return vs.\ update. hb-only curves rise and then fluctuate moderately; hb+comm curves, especially under dropout, \textbf{oscillate} between near-zero and high return (no stable convergence). \textbf{Bottom row:} the same four cells' \texttt{loss/entropy} vs.\ update. Reference lines mark $\ln 5 \approx 1.61$ (random actions) and $\ln 5 + \ln 8 \approx 3.69$ (random actions \emph{and} random 8-way messages). hb-only entropy drops toward confident actions ($\ll 1.61$). hb+comm total entropy stays in the 2.2--2.6 range---much nearer the $\ln 5+\ln 8$ ``fully random'' reference than a sharp message policy would allow (which would add only a small term on top of action entropy)---so the message marginal remains close to uniform.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{per_seed_dynamics.png}
+  \caption{Per-seed training return (top) and policy entropy (bottom) for each $(\text{method}, \text{regime})$ on \texttt{rware-small-4ag-v2} (\texttt{smoke\_small\_v1}). Instability under hb+comm + dropout and persistently high total entropy support the ``ungrounded message head'' reading; see text.}
+  \label{fig:per_seed}
+\end{figure}
+
+Taken together, a null or wrong-signed interaction is consistent with either ``comm does not help this task structure'' or ``comm was never grounded under RIAL''; differentiable messaging (e.g.\ DIAL-style) plus explicit per-token entropy logging is needed to separate the two.
+
+\subsection{Learning curves on \texttt{rware-tiny} (v3 and v4)}
+
+For comparison with Figs.~\ref{fig:smoke_small}--\ref{fig:per_seed}, Figs.~\ref{fig:v3}--\ref{fig:v4pk} show the \texttt{tiny}-map pilots. Fig.~\ref{fig:v3}: v3 noisy eval. Fig.~\ref{fig:v4pooled}: v4 pooled. Fig.~\ref{fig:v4pk}: v4 PK-only $n{=}3$.
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{dashboard_v3.png}
+  \caption{v3 ($n{=}6$, three eval episodes per checkpoint): eval curves are very noisy; train still shows dropout penalty.}
+  \label{fig:v3}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{dashboard_v4_pooled.png}
+  \caption{v4 pooled on \texttt{tiny} ($n{=}6$, production eval). Train: comm above hb-only in both regimes. Eval: no comm benefit; hb-only higher under dropout (crowding artifact).}
+  \label{fig:v4pooled}
+\end{figure}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\linewidth]{dashboard_v4_pk.png}
+  \caption{v4 PK-only $n{=}3$ (superseded by pooled $n{=}6$).}
+  \label{fig:v4pk}
+\end{figure}
+
+\section{Discussion}
+
+\subsection{Claims supported by current evidence}
+
+We have a \textbf{reproducible pipeline} (matrix runner, production eval, cross-machine pooling), a \textbf{controlled ambiguity mechanism} (delayed heartbeats + optional dropout without message-oracle leaks), and clear evidence that \textbf{dropout reduces shaped training return} on \texttt{tiny}. On \texttt{tiny}, hb+comm raises \textbf{shaped} training return by a meaningful margin under DD ($p{=}0.03$), but that is largely a \textbf{generic} comm benefit (similar lift under DO), not a significant \textbf{interaction}.
+
+\subsection{What we cannot yet claim}
+
+\textbf{Interaction hypothesis.} A positive $\Delta_{\text{comm-rescue}}$ at conventional significance is not supported: the \texttt{small}-map smoke moves the estimate the wrong way (Table~\ref{tab:interaction}, Fig.~\ref{fig:smoke_small}), albeit at low $n$.
+
+\textbf{Grounding.} Fig.~\ref{fig:per_seed} and entropy tables indicate the discrete message head is largely ungrounded under RIAL-style training---so ``comm failed'' and ``comm is unnecessary'' are \textbf{confounded} until a training method that receives receiver-side gradient into the sender (e.g.\ DIAL / Gumbel-Softmax) is tested with the same instrumentation.
+
+\textbf{Train vs.\ eval.} We cannot claim delivery improvement from comm without eval agreement; the shaping--eval gap is a real interpretive risk.
+
+\subsection{Limitations of the problem setting}
+
+Even with perfect grounding, several features of this task may cap comm's value:
+
+\begin{itemize}
+  \item \textbf{Narrow ambiguity window at $D{=}30$.} Heartbeat age becomes informative within a bounded horizon; comm's ceiling may be small unless $D$ is large enough that ambiguity persists for many steps.
+  \item \textbf{Modest dropout cost under hb-only.} If losing one agent only costs a few eval points, there is little ``headroom'' for comm to rescue---a \textbf{heartbeat-delay scan} ($D\in\{30,60,100\}$) would test whether the dropout penalty scales with ambiguity.
+  \item \textbf{RWARE structure.} Agents largely pursue shelves independently; there may be no high-value behavior that requires fine-grained teammate-state inference beyond what delayed heartbeats already provide.
+  \item \textbf{Statistical power.} Detecting a 5--10 point interaction with MARL-scale noise typically requires many more seeds than our pilots ($n{\approx}4$--$6$).
+\end{itemize}
+
+\subsection{Next steps}
+
+\textit{(i)}~\textbf{Heartbeat-delay scan} to widen ambiguity and measure whether dropout penalty grows with $D$. \textit{(ii)}~\textbf{Differentiable messaging} (Gumbel-Softmax / DIAL) with explicit \texttt{msg} vs.\ action entropy logging, to test whether grounding changes outcomes. \textit{(iii)}~\textbf{More seeds} ($n{\gtrsim}8$--$12$ minimum) for any claim about interaction-sized effects. \textit{(iv)}~Optional: \textbf{linear probes} from messages to hidden alive state given saved checkpoints---requires enabling model saves in future runs.
+
+\section*{Acknowledgment}
+
+This report is submitted for CS 2860 (Multi-Agent Systems), Harvard University.
+
+\bibliographystyle{IEEEtran}
+\begin{thebibliography}{1}
+
+\bibitem{foerster2016learning}
+J.~Foerster, Y.~Assael, N.~de~Freitas, and S.~Whiteson, ``Learning to communicate with deep multi-agent reinforcement learning,'' in \emph{Advances in Neural Information Processing Systems}, 2016.
+
+\end{thebibliography}
+
+\end{document}
