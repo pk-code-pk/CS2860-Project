@@ -1,0 +1,16 @@
+{
+  "selected_env": "rware-medium-4ag-v2",
+  "selection_rule": "most negative eval dropout penalty; non-small must beat small by at least 5",
+  "headroom": {
+    "rware-small-4ag-v2": {
+      "delay_only_eval": 53.56999999999999,
+      "delay_dropout_eval": 61.38083333333333,
+      "dropout_minus_delay_only": 7.810833333333335
+    },
+    "rware-medium-4ag-v2": {
+      "delay_only_eval": 29.91375,
+      "delay_dropout_eval": 24.505416666666665,
+      "dropout_minus_delay_only": -5.408333333333335
+    }
+  }
+}
