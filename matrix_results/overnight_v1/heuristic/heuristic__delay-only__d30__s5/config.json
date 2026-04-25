@@ -1,0 +1,22 @@
+{
+  "method": "heuristic",
+  "env": "rware-medium-4ag-v2",
+  "episodes": 20,
+  "max_steps": 500,
+  "seed": 5,
+  "stale_threshold": 4,
+  "no_comm": false,
+  "heartbeat": true,
+  "heartbeat_period": 1,
+  "heartbeat_delay": 30,
+  "heartbeat_max_age_clip": 128,
+  "dropout": false,
+  "dropout_agent": null,
+  "dropout_time": null,
+  "dropout_window_start": null,
+  "dropout_window_end": null,
+  "log_dir": "/Users/samchen/Coding/CLASSES/CS2860/runs/overnight_v1/heuristic",
+  "run_name": "heuristic__delay-only__d30__s5",
+  "no_log": false,
+  "env_spec": "EnvSpec(env_id='rware-medium-4ag-v2', n_agents=4, obs_dim=75, n_env_actions=5, noop_action=0, family='rware')"
+}
