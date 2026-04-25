@@ -84,6 +84,9 @@ def _parse_args() -> argparse.Namespace:
                    help="Emit a heartbeat every N steps (>=1).")
     p.add_argument("--heartbeat-delay", type=int, default=0,
                    help="Heartbeats arrive N steps after they were produced.")
+    p.add_argument("--heartbeat-max-age-clip", type=int, default=32,
+                   help="Clip heartbeat-age features at this value. Use a "
+                        "larger value (e.g. 128) for delay scans beyond d=30.")
 
     # --- Oracle-ceiling experiment: defeat the message-channel no-oracle invariant ---
     p.add_argument("--disable-message-echo", action="store_true",
@@ -131,6 +134,7 @@ def main() -> None:
         enabled=args.heartbeat,
         period=max(1, args.heartbeat_period),
         delay=max(0, args.heartbeat_delay),
+        max_age_clip=max(1, args.heartbeat_max_age_clip),
     )
 
     adapter_kwargs: dict = {}

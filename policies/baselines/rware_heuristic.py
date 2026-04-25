@@ -499,6 +499,7 @@ def _build_heartbeat_cfg(args):
         enabled=bool(args.heartbeat),
         period=max(1, int(args.heartbeat_period or 1)),
         delay=max(0, int(args.heartbeat_delay or 0)),
+        max_age_clip=max(1, int(args.heartbeat_max_age_clip or 32)),
     )
 
 
@@ -530,6 +531,9 @@ def _parse_args():
                    help="Emit a heartbeat every N steps (>=1).")
     p.add_argument("--heartbeat-delay", type=int, default=0,
                    help="Heartbeats arrive N steps after they were produced.")
+    p.add_argument("--heartbeat-max-age-clip", type=int, default=32,
+                   help="Clip heartbeat-age features at this value. Use a "
+                        "larger value for delay scans beyond d=30.")
     p.add_argument("--dropout", action="store_true",
                    help="Enable permanent teammate dropout mid-episode.")
     p.add_argument("--dropout-agent", type=int, default=None,

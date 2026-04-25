@@ -76,6 +76,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--heartbeat", action="store_true")
     p.add_argument("--heartbeat-period", type=int, default=1)
     p.add_argument("--heartbeat-delay", type=int, default=0)
+    p.add_argument("--heartbeat-max-age-clip", type=int, default=32)
     p.add_argument("--dropout", action="store_true")
     p.add_argument("--dropout-agent", type=int, default=None)
     p.add_argument("--dropout-time", type=int, default=None)
@@ -104,6 +105,7 @@ def main() -> None:
         enabled=args.heartbeat,
         period=max(1, args.heartbeat_period),
         delay=max(0, args.heartbeat_delay),
+        max_age_clip=max(1, args.heartbeat_max_age_clip),
     )
 
     env = make_unified_env(
@@ -201,6 +203,11 @@ def main() -> None:
                 "train/ep_return": float(ep_r),
                 "train/ep_length": float(ep_l),
                 "train/ep_deliveries": float(ep_deliv),
+                # Aliases match the MAPPO/heuristic metrics schema so the
+                # existing aggregation utilities can ingest HRL runs.
+                "train/ep_return_mean": float(ep_r),
+                "train/ep_length_mean": float(ep_l),
+                "train/n_episodes": 1.0,
                 "train/epsilon": float(learner.epsilon),
                 "hrl/q_table_size": float(learner.table_size()),
                 "time/elapsed_s": float(elapsed),
