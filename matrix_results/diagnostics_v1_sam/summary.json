@@ -1,0 +1,160 @@
+{
+  "task1_headroom": {
+    "rware-tiny-2ag-easy-v2": {
+      "delay_only_eval": 20.53,
+      "delay_dropout_eval": 12.62875,
+      "dropout_minus_delay_only": -7.901250000000001
+    },
+    "rware-small-2ag-v2": {
+      "delay_only_eval": 1.7683333333333335,
+      "delay_dropout_eval": 1.5433333333333334,
+      "dropout_minus_delay_only": -0.2250000000000001
+    },
+    "rware-medium-2ag-v2": {
+      "delay_only_eval": 0.5191666666666667,
+      "delay_dropout_eval": 0.09166666666666666,
+      "dropout_minus_delay_only": -0.4275
+    }
+  },
+  "task1_main_tiny": {
+    "mappo-heartbeat-only|baseline|d0": {
+      "n": 4,
+      "eval_mean": 28.158333333333335,
+      "eval_std": 3.206381007719867,
+      "entropy_mean": 0.5834949858533218
+    },
+    "mappo-heartbeat-only|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 22.918333333333333,
+      "eval_std": 1.6194559271557845,
+      "entropy_mean": 0.28719687090808294
+    },
+    "mappo-heartbeat-only|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 30.410416666666666,
+      "eval_std": 0.8528566173292114,
+      "entropy_mean": 0.5997499266150408
+    },
+    "mappo-heartbeat-only|dropout-only|d0": {
+      "n": 4,
+      "eval_mean": 25.770833333333332,
+      "eval_std": 4.627261384087425,
+      "entropy_mean": 0.33685353540116925
+    },
+    "mappo-heartbeat-plus-comm|baseline|d0": {
+      "n": 4,
+      "eval_mean": 16.81791666666667,
+      "eval_std": 2.4317493060552113,
+      "entropy_mean": 2.335092955417931
+    },
+    "mappo-heartbeat-plus-comm|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 14.859583333333333,
+      "eval_std": 5.420888274766415,
+      "entropy_mean": 2.1355477046221494
+    },
+    "mappo-heartbeat-plus-comm|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 28.045,
+      "eval_std": 4.273845685614355,
+      "entropy_mean": 2.337465026937425
+    },
+    "mappo-heartbeat-plus-comm|dropout-only|d0": {
+      "n": 4,
+      "eval_mean": 19.204166666666666,
+      "eval_std": 2.3376604223026063,
+      "entropy_mean": 1.9947764221578836
+    },
+    "mappo-no-comm|baseline|d0": {
+      "n": 4,
+      "eval_mean": 34.23125,
+      "eval_std": 8.230043065146543,
+      "entropy_mean": 0.6437128088343889
+    },
+    "mappo-no-comm|dropout-only|d0": {
+      "n": 4,
+      "eval_mean": 27.75375,
+      "eval_std": 6.793393070456193,
+      "entropy_mean": 0.41324795174150497
+    }
+  },
+  "task2_tiny_normal": {
+    "mappo-heartbeat-only|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 12.62875,
+      "eval_std": 1.756716229139533,
+      "entropy_mean": 0.4206994727673009
+    },
+    "mappo-heartbeat-only|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 20.53,
+      "eval_std": 2.94826855968041,
+      "entropy_mean": 0.5662472280138172
+    },
+    "mappo-heartbeat-plus-comm|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 8.33125,
+      "eval_std": 2.357058364136205,
+      "entropy_mean": 2.3489398761093616
+    },
+    "mappo-heartbeat-plus-comm|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 15.049166666666666,
+      "eval_std": 2.2318245836584523,
+      "entropy_mean": 2.0878638640791176
+    }
+  },
+  "task2_tiny_oracle": {
+    "mappo-heartbeat-plus-comm|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 10.88125,
+      "eval_std": 3.506194196426597,
+      "entropy_mean": 1.8473429171927274
+    },
+    "mappo-heartbeat-plus-comm|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 15.049166666666666,
+      "eval_std": 2.2318245836584523,
+      "entropy_mean": 2.0878638640791176
+    }
+  },
+  "task3_hrl_tiny": {
+    "hrl-comm|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 0.11666666666666667,
+      "eval_std": 0.05527707983925666
+    },
+    "hrl-comm|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 0.07500000000000001,
+      "eval_std": 0.04930066485916347
+    },
+    "hrl-oracle-high|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 0.15,
+      "eval_std": 0.016666666666666663
+    },
+    "hrl-oracle-high|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 0.15,
+      "eval_std": 0.016666666666666663
+    },
+    "hrl|delay-dropout|d30": {
+      "n": 4,
+      "eval_mean": 0.03333333333333333,
+      "eval_std": 0.023570226039551584
+    },
+    "hrl|delay-only|d30": {
+      "n": 4,
+      "eval_mean": 0.1,
+      "eval_std": 0.023570226039551584
+    }
+  },
+  "derived": {
+    "task1_tiny_delaydrop_comm_minus_hb": -8.05875,
+    "task1_tiny_delayonly_comm_minus_hb": -2.3654166666666647,
+    "task1_tiny_interaction": -5.693333333333335,
+    "task2_delaydrop_oracle_minus_learned": 2.549999999999999,
+    "task2_delaydrop_oracle_minus_hb": -1.7475000000000005
+  }
+}

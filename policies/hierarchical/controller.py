@@ -63,6 +63,10 @@ class ControllerConfig:
     # (enables the RECOVER cooperative subtask). Only used when the env
     # exposes heartbeat ages in info["debug_heartbeat_age"].
     stale_threshold: int = 4
+    # If True, bypass the learned high-level policy and use a fixed
+    # assignment heuristic for cooperative subtasks. This isolates
+    # low-level executability from high-level learning.
+    oracle_high_level: bool = False
 
 
 @dataclass
@@ -275,7 +279,15 @@ class HierarchicalController:
         teammate_tuple = self._teammate_view(agent_idx)
         s = self._build_state(base, agent_idx, teammate_tuple)
         legal = self._legal_set(base, agent_idx, teammate_tuple, heartbeat_ages)
-        a = self.learner.select(s, legal, greedy=not training)
+        if self.cfg.oracle_high_level:
+            a = self._oracle_select_subtask(
+                base=base,
+                agent_idx=agent_idx,
+                legal=legal,
+                teammate_tuple=teammate_tuple,
+            )
+        else:
+            a = self.learner.select(s, legal, greedy=not training)
 
         shelf_id = self._shelf_id_for_subtask(base, agent_idx, a)
 
@@ -297,6 +309,55 @@ class HierarchicalController:
         # exactly the "stale teammate knowledge" the paper describes
         # for Cooperative-HRL without COM.
         self._view[agent_idx, :] = self._broadcasted
+
+    def _oracle_select_subtask(
+        self,
+        *,
+        base,
+        agent_idx: int,
+        legal: list[HighSubtask],
+        teammate_tuple: tuple[int, ...],
+    ) -> HighSubtask:
+        """Fixed high-level selector used for diagnostics."""
+        if not legal:
+            return HighSubtask.IDLE
+
+        legal_set = set(legal)
+        ag = base.agents[agent_idx]
+        carrying = getattr(ag, "carrying_shelf", None)
+
+        # If we are carrying a shelf that is currently requested, bind to
+        # that slot so low-level execution can deliver it.
+        if carrying is not None:
+            reqs = list(base.request_queue)
+            for i, shelf in enumerate(reqs[: self._n_slots()]):
+                if shelf.id == carrying.id:
+                    st = HighSubtask(i)
+                    if st in legal_set:
+                        return st
+            # Carrying a non-requested shelf: RECOVER makes low-level
+            # return/move behavior kick in; otherwise idle.
+            if HighSubtask.RECOVER in legal_set:
+                return HighSubtask.RECOVER
+            return HighSubtask.IDLE
+
+        claimed = {int(v) for v in teammate_tuple if 0 <= int(v) < self._n_slots()}
+        reqs = list(base.request_queue)
+        best: tuple[int, HighSubtask] | None = None
+        for i, shelf in enumerate(reqs[: self._n_slots()]):
+            if i in claimed:
+                continue
+            st = HighSubtask(i)
+            if st not in legal_set:
+                continue
+            d = abs(shelf.x - ag.x) + abs(shelf.y - ag.y)
+            if best is None or d < best[0]:
+                best = (d, st)
+        if best is not None:
+            return best[1]
+        if HighSubtask.RECOVER in legal_set:
+            return HighSubtask.RECOVER
+        return HighSubtask.IDLE
 
     def _finalize_option(
         self,

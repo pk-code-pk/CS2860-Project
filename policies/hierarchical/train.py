@@ -55,6 +55,9 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--comm", action="store_true",
                    help="Enable COM-Cooperative-HRL: broadcast new "
                         "cooperative subtasks at every boundary.")
+    p.add_argument("--oracle-high-level", action="store_true",
+                   help="Use a fixed non-learning high-level subtask "
+                        "selector while keeping the same low-level executor.")
     p.add_argument("--no-cooperative", action="store_true",
                    help="Ablation: drop teammate conditioning from Q key "
                         "(reduces to independent hierarchical Q-learning).")
@@ -141,6 +144,7 @@ def main() -> None:
         max_option_steps=int(args.max_option_steps),
         comm=bool(args.comm),
         stale_threshold=int(args.stale_threshold),
+        oracle_high_level=bool(args.oracle_high_level),
     )
     controller = HierarchicalController(ctrl_cfg, learner)
     runner = HRLRunner(controller)
@@ -148,7 +152,8 @@ def main() -> None:
     print(
         f"[cfg] alpha={q_cfg.alpha} gamma={q_cfg.gamma} eps=[{q_cfg.epsilon_start}->"
         f"{q_cfg.epsilon_end}] over {q_cfg.epsilon_decay_episodes} eps  "
-        f"coop={q_cfg.cooperative} comm={ctrl_cfg.comm}"
+        f"coop={q_cfg.cooperative} comm={ctrl_cfg.comm} "
+        f"oracle_high_level={ctrl_cfg.oracle_high_level}"
     )
     print(
         f"[hb] heartbeat={heartbeat_cfg.enabled} "
