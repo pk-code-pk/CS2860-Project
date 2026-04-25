@@ -1,0 +1,62 @@
+{
+  "created_from": [
+    {
+      "machine": "pk",
+      "root": "matrix_results/overnight_v1_pk"
+    },
+    {
+      "machine": "sam",
+      "root": "matrix_results/overnight_v1"
+    }
+  ],
+  "n_raw_runs": 136,
+  "selected_env": "rware-medium-4ag-v2",
+  "summary_contrasts": {
+    "headroom_rware-small-4ag-v2": {
+      "delay_only_eval": 50.21729166666666,
+      "delay_dropout_eval": 61.984375,
+      "dropout_minus_delay_eval": 11.76708333333334,
+      "delay_only_train": 206.67125000000001,
+      "delay_dropout_train": 206.43625,
+      "dropout_minus_delay_train": -0.23500000000001364
+    },
+    "headroom_rware-medium-4ag-v2": {
+      "delay_only_eval": 32.28916666666667,
+      "delay_dropout_eval": 30.30645833333333,
+      "dropout_minus_delay_eval": -1.9827083333333348,
+      "delay_only_train": 122.67,
+      "delay_dropout_train": 108.09375,
+      "dropout_minus_delay_train": -14.576250000000002
+    },
+    "mappo_medium": {
+      "hb_only_delay_only_eval": 32.28916666666667,
+      "hb_only_delay_dropout_eval": 30.30645833333333,
+      "comm_delay_only_eval": 23.242291666666667,
+      "comm_delay_dropout_eval": 23.512083333333333,
+      "comm_benefit_delay_only_eval": -9.046875,
+      "comm_benefit_delay_dropout_eval": -6.794374999999999,
+      "interaction_eval": 2.2525000000000013,
+      "comm_benefit_delay_only_train": -14.489999999999995,
+      "comm_benefit_delay_dropout_train": -10.163749999999993,
+      "interaction_train": 4.326250000000002,
+      "hb_only_delay_only_entropy": 0.8456920644268393,
+      "hb_only_delay_dropout_entropy": 0.608270182897104,
+      "comm_delay_only_entropy": 2.4540998650714756,
+      "comm_delay_dropout_entropy": 2.1817082621762527,
+      "estimated_msg_entropy_delay_only": 1.6084078006446363,
+      "estimated_msg_entropy_delay_dropout": 1.5734380792791487,
+      "interaction_eval_ttest_p": 0.8205610885279008,
+      "interaction_train_ttest_p": 0.8790244731386451
+    },
+    "oracle_medium": {
+      "hb_only_delay_dropout_eval": 30.30645833333333,
+      "normal_comm_delay_dropout_eval": 23.512083333333333,
+      "oracle_comm_delay_dropout_eval": 27.843124999999997
+    },
+    "no_mech_medium": {
+      "baseline_eval": 22.56125,
+      "dropout_only_eval": 22.01354166666667,
+      "dropout_minus_baseline_eval": -0.5477083333333326
+    }
+  }
+}
