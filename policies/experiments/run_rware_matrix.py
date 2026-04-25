@@ -180,6 +180,7 @@ def _build_train_cmd(
     dropout_window_start: int | None,
     dropout_window_end: int | None,
     heartbeat_period: int,
+    heartbeat_max_age_clip: int,
     shape_rewards: bool,
     pickup_bonus: float,
     step_penalty: float,
@@ -215,8 +216,10 @@ def _build_train_cmd(
     if method.heartbeat:
         cmd.append("--heartbeat")
         cmd.extend(["--heartbeat-period", str(heartbeat_period)])
+        cmd.extend(["--heartbeat-max-age-clip", str(heartbeat_max_age_clip)])
         used["heartbeat"] = True
         used["heartbeat_period"] = heartbeat_period
+        used["heartbeat_max_age_clip"] = heartbeat_max_age_clip
         if regime.has_delay and delay > 0:
             cmd.extend(["--heartbeat-delay", str(delay)])
             used["heartbeat_delay"] = delay
@@ -284,6 +287,7 @@ def _build_heuristic_cmd(
     dropout_window_start: int | None,
     dropout_window_end: int | None,
     heartbeat_period: int,
+    heartbeat_max_age_clip: int,
 ) -> tuple[list[str], dict[str, Any]]:
     cmd: list[str] = [
         python,
@@ -310,8 +314,10 @@ def _build_heuristic_cmd(
     if method.heartbeat:
         cmd.append("--heartbeat")
         cmd.extend(["--heartbeat-period", str(heartbeat_period)])
+        cmd.extend(["--heartbeat-max-age-clip", str(heartbeat_max_age_clip)])
         used["heartbeat"] = True
         used["heartbeat_period"] = heartbeat_period
+        used["heartbeat_max_age_clip"] = heartbeat_max_age_clip
         if regime.has_delay and delay > 0:
             cmd.extend(["--heartbeat-delay", str(delay)])
             used["heartbeat_delay"] = delay
@@ -408,6 +414,7 @@ def build_plans(
                             dropout_window_start=args.dropout_window_start,
                             dropout_window_end=args.dropout_window_end,
                             heartbeat_period=args.heartbeat_period,
+                            heartbeat_max_age_clip=args.heartbeat_max_age_clip,
                             shape_rewards=args.shape_rewards,
                             pickup_bonus=args.pickup_bonus,
                             step_penalty=args.step_penalty,
@@ -431,6 +438,7 @@ def build_plans(
                             dropout_window_start=args.dropout_window_start,
                             dropout_window_end=args.dropout_window_end,
                             heartbeat_period=args.heartbeat_period,
+                            heartbeat_max_age_clip=args.heartbeat_max_age_clip,
                         )
                     else:
                         raise ValueError(f"unknown method.kind {method.kind!r}")
@@ -760,6 +768,10 @@ def _parse_args() -> argparse.Namespace:
 
     # Heartbeat / dropout knobs (forwarded to wrapper)
     p.add_argument("--heartbeat-period", type=int, default=1)
+    p.add_argument("--heartbeat-max-age-clip", type=int, default=32,
+                   help="Clip heartbeat-age features at this value. Set this "
+                        "above the largest delay in delay scans (e.g. 128 for "
+                        "d=60/100) so high-delay cells remain distinguishable.")
     # Fixed-mode dropout (used iff window flags are NOT both supplied).
     p.add_argument("--dropout-agent", type=int, default=0)
     p.add_argument("--dropout-time", type=int, default=100)

@@ -44,6 +44,11 @@ class HeartbeatConfig:
     # space stays bounded. Ages above this clip are reported as this clip.
     max_age_clip: int = 32
 
+    def __post_init__(self) -> None:
+        self.period = max(1, int(self.period))
+        self.delay = max(0, int(self.delay))
+        self.max_age_clip = max(1, int(self.max_age_clip))
+
 
 class HeartbeatTracker:
     """
