@@ -174,18 +174,21 @@ def _welch_t_p(a: list[float], b: list[float]) -> tuple[float, float]:
 # adjacent in every panel so the gap is visually obvious.
 _METHOD_ORDER = (
     "mappo-no-comm",
+    "mappo-comm-no-hb",
     "mappo-heartbeat-only",
     "mappo-heartbeat-plus-comm",
     "heuristic",
 )
 _METHOD_COLOURS = {
     "mappo-no-comm": "#888888",
+    "mappo-comm-no-hb": "#ff7f0e",
     "mappo-heartbeat-only": "#1f77b4",
     "mappo-heartbeat-plus-comm": "#d62728",
     "heuristic": "#2ca02c",
 }
 _METHOD_SHORT = {
     "mappo-no-comm": "no-comm",
+    "mappo-comm-no-hb": "comm!hb",
     "mappo-heartbeat-only": "hb-only",
     "mappo-heartbeat-plus-comm": "hb+comm",
     "heuristic": "heur",
@@ -194,7 +197,9 @@ _METHOD_SHORT = {
 
 def _present_methods(cells: dict[CellKey, dict]) -> list[str]:
     seen = {k.method for k in cells}
-    return [m for m in _METHOD_ORDER if m in seen]
+    ordered = [m for m in _METHOD_ORDER if m in seen]
+    extra = sorted(m for m in seen if m not in _METHOD_ORDER)
+    return ordered + extra
 
 
 def _present_regimes(cells: dict[CellKey, dict]) -> list[str]:
