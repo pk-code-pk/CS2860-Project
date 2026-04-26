@@ -825,11 +825,15 @@ def _parse_args() -> argparse.Namespace:
                    help="Upper bound (exclusive) of the per-episode dropout "
                         "step window. Must be set together with --dropout-"
                         "window-start to enable window mode.")
-    p.add_argument("--dropout-target-strategy", choices=["request-intent"], default=None,
+    p.add_argument("--dropout-target-strategy",
+                   choices=["request-intent", "request-intent-random"],
+                   default=None,
                    help="Targeted mode for MAPPO cells: choose the failed agent "
                         "at --dropout-time based on current task state. "
-                        "'request-intent' targets carrying/assigned/closest "
-                        "requested work. Mutually exclusive with window mode.")
+                        "'request-intent' targets the top-ranked request-relevant "
+                        "agent; 'request-intent-random' samples within the "
+                        "highest non-empty request-relevance tier. Mutually "
+                        "exclusive with window mode.")
 
     # Reward shaping (forwarded to MAPPO trainings only; heuristic doesn't learn).
     p.add_argument("--shape-rewards", action="store_true",

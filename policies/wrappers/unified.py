@@ -131,9 +131,10 @@ class DropoutConfig:
                 "or targeted."
             )
         if targeted_specified:
-            if self.target_strategy not in {"request-intent"}:
+            if self.target_strategy not in {"request-intent", "request-intent-random"}:
                 raise ValueError(
-                    "DropoutConfig: target_strategy must be 'request-intent'."
+                    "DropoutConfig: target_strategy must be 'request-intent' "
+                    "or 'request-intent-random'."
                 )
             if self.agent is not None:
                 raise ValueError(
@@ -446,6 +447,7 @@ class UnifiedMARLEnv:
                     strategy=self.dropout_cfg.target_strategy,
                     alive=alive,
                     n_msg_tokens=self.n_msg_tokens,
+                    rng=self._dropout_rng,
                 )
                 if agent is not None:
                     return int(agent)

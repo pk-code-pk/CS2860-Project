@@ -256,17 +256,23 @@ class RwareAdapter:
         strategy: str | None,
         alive: np.ndarray,
         n_msg_tokens: int,
+        rng: np.random.Generator | None = None,
     ) -> int | None:
         """
         Pick a runtime dropout target for diagnostics where failure should hit
         meaningful work rather than an arbitrary fixed agent.
 
-        ``request-intent`` prioritizes agents carrying requested shelves, then
-        the live agent closest to any currently requested shelf. This makes the
-        dropout event create abandoned request pressure that intent-grounded
-        communication should be able to describe.
+        ``request-intent`` is deterministic: it prioritizes agents carrying
+        requested shelves, then agents assigned to request slots, then the live
+        agent closest to requested work.
+
+        ``request-intent-random`` keeps those same task-relevance tiers but
+        samples uniformly within the highest non-empty tier using the wrapper's
+        reset-seeded dropout RNG. This tests whether communication still helps
+        when failures are sampled from request-relevant agents rather than
+        always hitting the single top-ranked target.
         """
-        if strategy != "request-intent":
+        if strategy not in {"request-intent", "request-intent-random"}:
             return None
 
         base = self._env.unwrapped
@@ -277,7 +283,7 @@ class RwareAdapter:
 
         requests = list(getattr(base, "request_queue", []))
         if not requests:
-            return int(live[0])
+            return self._choose_target(live, strategy=strategy, rng=rng)
         requested_ids = {getattr(s, "id", None) for s in requests}
 
         carrying_requested: list[int] = []
@@ -286,14 +292,22 @@ class RwareAdapter:
             if shelf is not None and getattr(shelf, "id", None) in requested_ids:
                 carrying_requested.append(i)
         if carrying_requested:
-            return int(carrying_requested[0])
+            return self._choose_target(
+                carrying_requested,
+                strategy=strategy,
+                rng=rng,
+            )
 
         # Reuse the same greedy intent labels as message grounding when
         # possible; this selects agents assigned to a request slot.
         labels = self.message_intent_labels(n_msg_tokens=n_msg_tokens, alive=alive_mask)
         request_assigned = [i for i in live if int(labels[i]) >= 3]
         if request_assigned:
-            return int(request_assigned[0])
+            return self._choose_target(
+                request_assigned,
+                strategy=strategy,
+                rng=rng,
+            )
 
         triples: list[tuple[int, int]] = []
         for i in live:
@@ -304,4 +318,26 @@ class RwareAdapter:
             )
             triples.append((best, i))
         triples.sort()
+        if strategy == "request-intent-random":
+            # Final fallback tier: sample among agents tied for closest request
+            # distance. This stays targeted without degenerating to uniform
+            # random over all live agents in large teams.
+            best_dist = triples[0][0]
+            closest = [agent_idx for dist, agent_idx in triples if dist == best_dist]
+            return self._choose_target(closest, strategy=strategy, rng=rng)
         return int(triples[0][1])
+
+    @staticmethod
+    def _choose_target(
+        candidates: list[int],
+        *,
+        strategy: str | None,
+        rng: np.random.Generator | None,
+    ) -> int | None:
+        if not candidates:
+            return None
+        if strategy == "request-intent-random":
+            sampler = rng if rng is not None else np.random.default_rng()
+            idx = int(sampler.integers(0, len(candidates)))
+            return int(candidates[idx])
+        return int(candidates[0])
