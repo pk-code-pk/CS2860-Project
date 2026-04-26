@@ -84,6 +84,11 @@ def _parse_args() -> argparse.Namespace:
                    help="Window mode: inclusive start of uniform-random dropout step.")
     p.add_argument("--dropout-window-end", type=int, default=None,
                    help="Window mode: exclusive end of uniform-random dropout step.")
+    p.add_argument("--dropout-target-strategy", choices=["request-intent"], default=None,
+                   help="Targeted mode: choose the failed agent at --dropout-time "
+                        "from current task state instead of using --dropout-agent. "
+                        "'request-intent' drops an agent carrying/assigned/closest "
+                        "to requested work.")
 
     # --- Ambiguity mechanism: delayed heartbeats ---
     p.add_argument("--heartbeat", action="store_true",
@@ -137,6 +142,7 @@ def main() -> None:
         time=args.dropout_time,
         window_start=args.dropout_window_start,
         window_end=args.dropout_window_end,
+        target_strategy=args.dropout_target_strategy,
     )
     heartbeat_cfg = HeartbeatConfig(
         enabled=args.heartbeat,
