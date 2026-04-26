@@ -74,8 +74,24 @@ local observation alone.
 
 ## Files
 
+- `PAPER_ANALYSIS.md`: paper-ready interpretation with figures, CIs, effect
+  sizes, paired tests, per-seed outcomes, learning dynamics, and limitations.
 - `summary.json`: aggregate statistics, per-run values, and statistical tests.
 - `aggregate_summary.csv`: method-level means and standard deviations.
 - `per_run_summary.csv`: per-seed metrics used for the aggregate.
+- `paper_stats_aggregate.csv`: enriched aggregate stats with SEM and 95% CIs.
+- `paper_stats_comparisons.csv`: matched-seed comparisons, effect sizes, and
+  paired/nonparametric tests.
+- `paper_per_seed_table.csv`: seed-level table for paper appendix/debugging.
+- `paper_analysis_summary.json`: machine-readable version of the paper analysis.
+- `figures/`: PNG figures for the paper or presentation.
 - `../intent_grounded_v1_targeted/rware-medium-2ag-easy-v2/`: raw run logs,
   configs, manifests, metrics, and TensorBoard event files.
+
+Recommended figures:
+
+1. `figures/targeted_last5_eval_bar.png` for the main result.
+2. `figures/targeted_paired_differences.png` for matched-seed gains.
+3. `figures/targeted_eval_learning_curves.png` for training dynamics.
+4. `figures/targeted_message_grounding_accuracy.png` for the intent auxiliary
+   diagnostic.

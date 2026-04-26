@@ -1,0 +1,178 @@
+{
+  "aggregate": [
+    {
+      "method": "mappo-no-comm",
+      "n": 8,
+      "last5_eval_mean": 0.39166666666666666,
+      "last5_eval_sd": 0.5250185181919248,
+      "last5_eval_sem": 0.18562207723101137,
+      "last5_eval_t_ci95_low": -0.04725979878481157,
+      "last5_eval_t_ci95_high": 0.8305931321181449,
+      "last5_eval_boot_ci95_low": 0.09708333333333333,
+      "last5_eval_boot_ci95_high": 0.7645833333333333,
+      "final_eval_mean": 1.0104166666666667,
+      "final_eval_sd": 1.7208326127059486,
+      "msg_acc_mean": 0.0,
+      "msg_acc_sd": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "n": 8,
+      "last5_eval_mean": 3.2154166666666666,
+      "last5_eval_sd": 2.4119023233664163,
+      "last5_eval_sem": 0.852736244205991,
+      "last5_eval_t_ci95_low": 1.199015863405033,
+      "last5_eval_t_ci95_high": 5.231817469928299,
+      "last5_eval_boot_ci95_low": 1.7395833333333335,
+      "last5_eval_boot_ci95_high": 4.84125,
+      "final_eval_mean": 5.90625,
+      "final_eval_sd": 5.986419402439555,
+      "msg_acc_mean": 0.0,
+      "msg_acc_sd": 0.0
+    },
+    {
+      "method": "mappo-intent-aux",
+      "n": 8,
+      "last5_eval_mean": 7.297499999999999,
+      "last5_eval_sd": 4.932907237068603,
+      "last5_eval_sem": 1.7440460791477026,
+      "last5_eval_t_ci95_low": 3.1734863453520337,
+      "last5_eval_t_ci95_high": 11.421513654647965,
+      "last5_eval_boot_ci95_low": 4.16078125,
+      "last5_eval_boot_ci95_high": 10.524999999999999,
+      "final_eval_mean": 7.360416666666667,
+      "final_eval_sd": 5.429299828429457,
+      "msg_acc_mean": 0.5681108599499566,
+      "msg_acc_sd": 0.04351944466812918
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison": "mappo-comm - mappo-no-comm",
+      "n": 8,
+      "mean_diff": 2.82375,
+      "sd_diff": 2.138588347262656,
+      "diff_boot_ci95_low": 1.4787395833333332,
+      "diff_boot_ci95_high": 4.224187499999998,
+      "cohens_dz": 1.3203803357548147,
+      "paired_t_stat": 3.7345995566303998,
+      "paired_t_two_sided_p": 0.007314419965651633,
+      "paired_t_greater_p": 0.0036572099828258166,
+      "wilcoxon_two_sided_p": 0.015625,
+      "wilcoxon_greater_p": 0.0078125,
+      "seed_diffs": "0:5.79;1:-0.236667;2:2.15;3:5.74667;4:3.36333;5:0.973333;6:1.77667;7:3.02667"
+    },
+    {
+      "comparison": "mappo-intent-aux - mappo-no-comm",
+      "n": 8,
+      "mean_diff": 6.905833333333334,
+      "sd_diff": 5.127508058393363,
+      "diff_boot_ci95_low": 3.5820833333333337,
+      "diff_boot_ci95_high": 10.268749999999999,
+      "cohens_dz": 1.3468205714526338,
+      "paired_t_stat": 3.809383836462793,
+      "paired_t_two_sided_p": 0.006633225438993207,
+      "paired_t_greater_p": 0.0033166127194966034,
+      "wilcoxon_two_sided_p": 0.0078125,
+      "wilcoxon_greater_p": 0.00390625,
+      "seed_diffs": "0:0.73;1:8.03667;2:0.21;3:5.78333;4:15.48;5:9.21333;6:10.8733;7:4.92"
+    },
+    {
+      "comparison": "mappo-intent-aux - mappo-comm",
+      "n": 8,
+      "mean_diff": 4.082083333333332,
+      "sd_diff": 6.15925112369693,
+      "diff_boot_ci95_low": 0.008729166666667159,
+      "diff_boot_ci95_high": 7.991666666666665,
+      "cohens_dz": 0.6627564376500317,
+      "paired_t_stat": 1.8745582853495069,
+      "paired_t_two_sided_p": 0.10298596199748611,
+      "paired_t_greater_p": 0.051492980998743054,
+      "wilcoxon_two_sided_p": 0.1484375,
+      "wilcoxon_greater_p": 0.07421875,
+      "seed_diffs": "0:-5.06;1:8.27333;2:-1.94;3:0.0366667;4:12.1167;5:8.24;6:9.09667;7:1.89333"
+    }
+  ],
+  "per_seed": [
+    {
+      "seed": 0,
+      "mappo-no-comm": 1.4766666666666668,
+      "mappo-comm": 7.266666666666666,
+      "mappo-intent-aux": 2.2066666666666666,
+      "comm_minus_no_comm": 5.789999999999999,
+      "intent_minus_no_comm": 0.7299999999999998,
+      "intent_minus_comm": -5.059999999999999
+    },
+    {
+      "seed": 1,
+      "mappo-no-comm": 0.27999999999999997,
+      "mappo-comm": 0.043333333333333335,
+      "mappo-intent-aux": 8.316666666666666,
+      "comm_minus_no_comm": -0.23666666666666664,
+      "intent_minus_no_comm": 8.036666666666667,
+      "intent_minus_comm": 8.273333333333333
+    },
+    {
+      "seed": 2,
+      "mappo-no-comm": 0.0,
+      "mappo-comm": 2.15,
+      "mappo-intent-aux": 0.21000000000000002,
+      "comm_minus_no_comm": 2.15,
+      "intent_minus_no_comm": 0.21000000000000002,
+      "intent_minus_comm": -1.94
+    },
+    {
+      "seed": 3,
+      "mappo-no-comm": 0.0,
+      "mappo-comm": 5.746666666666667,
+      "mappo-intent-aux": 5.783333333333333,
+      "comm_minus_no_comm": 5.746666666666667,
+      "intent_minus_no_comm": 5.783333333333333,
+      "intent_minus_comm": 0.03666666666666618
+    },
+    {
+      "seed": 4,
+      "mappo-no-comm": 0.2533333333333333,
+      "mappo-comm": 3.616666666666667,
+      "mappo-intent-aux": 15.73333333333333,
+      "comm_minus_no_comm": 3.3633333333333337,
+      "intent_minus_no_comm": 15.479999999999997,
+      "intent_minus_comm": 12.116666666666664
+    },
+    {
+      "seed": 5,
+      "mappo-no-comm": 0.24333333333333335,
+      "mappo-comm": 1.2166666666666668,
+      "mappo-intent-aux": 9.456666666666667,
+      "comm_minus_no_comm": 0.9733333333333334,
+      "intent_minus_no_comm": 9.213333333333333,
+      "intent_minus_comm": 8.24
+    },
+    {
+      "seed": 6,
+      "mappo-no-comm": 0.0,
+      "mappo-comm": 1.7766666666666666,
+      "mappo-intent-aux": 10.873333333333331,
+      "comm_minus_no_comm": 1.7766666666666666,
+      "intent_minus_no_comm": 10.873333333333331,
+      "intent_minus_comm": 9.096666666666664
+    },
+    {
+      "seed": 7,
+      "mappo-no-comm": 0.8799999999999999,
+      "mappo-comm": 3.9066666666666663,
+      "mappo-intent-aux": 5.800000000000001,
+      "comm_minus_no_comm": 3.0266666666666664,
+      "intent_minus_no_comm": 4.920000000000001,
+      "intent_minus_comm": 1.8933333333333344
+    }
+  ],
+  "figures": [
+    "figures/targeted_eval_learning_curves.png",
+    "figures/targeted_grounding_vs_return.png",
+    "figures/targeted_last5_eval_bar.png",
+    "figures/targeted_message_grounding_accuracy.png",
+    "figures/targeted_paired_differences.png",
+    "figures/targeted_paired_seed_lines.png"
+  ]
+}
