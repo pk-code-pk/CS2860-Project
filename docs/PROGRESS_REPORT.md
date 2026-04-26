@@ -889,11 +889,52 @@ Paper-ready artifacts live in
 - `paper_stats_aggregate.csv`, `paper_stats_comparisons.csv`, and
   `paper_per_seed_table.csv`: tables for paper appendix/stat verification.
 
-The best next robustness check is randomized targeted dropout: sample from the
-set of task-relevant candidate agents rather than always dropping the top-ranked
-candidate. If the communication effect survives that variant, the paper can
-argue the result is not an artifact of always killing the maximally important
-agent.
+We then ran two randomized targeted-dropout robustness checks. Instead of always
+dropping the top-ranked request-relevant agent, `request-intent-random` samples
+from the highest non-empty request-relevance tier: carrying requested shelf,
+assigned to request slot, tied closest to requested shelf, then any live agent
+as fallback. This keeps failures task-relevant while avoiding the criticism that
+we always remove the maximally important agent.
+
+At `t=25`, randomized targeted dropout preserved the main grounded-communication
+claim:
+
+| Method | Mean | SD |
+|---|---:|---:|
+| `mappo-no-comm` | 0.43 | 0.44 |
+| `mappo-comm` | 1.72 | 1.95 |
+| `mappo-intent-aux` | 5.27 | 2.90 |
+
+Matched-seed tests: plain learned communication was positive but not
+significant (`p=0.122`, paired t-test), while intent-grounded communication
+significantly beat no communication (`p=0.0021`, Wilcoxon `p=0.0078`).
+
+At `t=50`, the robustness result became even cleaner:
+
+| Method | Mean | SD |
+|---|---:|---:|
+| `mappo-no-comm` | 1.20 | 1.43 |
+| `mappo-comm` | 2.36 | 1.90 |
+| `mappo-intent-aux` | 8.34 | 2.32 |
+
+Matched-seed tests at `t=50`:
+
+| Comparison | Mean diff | Paired t p | Wilcoxon p |
+|---|---:|---:|---:|
+| `mappo-comm - mappo-no-comm` | +1.17 | 0.1406 | 0.1484 |
+| `mappo-intent-aux - mappo-no-comm` | +7.14 | 0.00045 | 0.0078 |
+| `mappo-intent-aux - mappo-comm` | +5.97 | 0.0046 | 0.0156 |
+
+This gives the paper a strong final framing: unconstrained learned
+communication can help under the deterministic stress test, but it is fragile
+under randomized task-relevant failures. Intent-grounded communication is the
+robust result, significantly outperforming no communication at both `t=25` and
+`t=50`, and significantly outperforming plain learned communication at `t=50`.
+
+Additional robustness artifacts live in:
+
+- `matrix_results/intent_grounded_v1_targeted_random_analysis/`
+- `matrix_results/intent_grounded_v1_targeted_random_t50_analysis/`
 
 ### 10.1 What is *not* in the code yet
 
@@ -909,4 +950,4 @@ These are all on the `feature/dial-grounded-comm` branch's TODO list.
 
 ---
 
-*End of progress report. Next update: after randomized targeted-dropout robustness results land.*
+*End of progress report. Next update: during paper drafting / final figure selection.*

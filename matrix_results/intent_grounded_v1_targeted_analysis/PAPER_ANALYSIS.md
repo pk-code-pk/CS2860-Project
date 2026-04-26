@@ -80,9 +80,52 @@ Across only 8 seeds, grounding accuracy is a noisy predictor of return, so the s
 
 The clean claim is:
 
-> Under targeted request-relevant teammate dropout, learned communication significantly improves MAPPO recovery over no communication, and intent-grounded communication produces the strongest average recovery.
+> Under targeted request-relevant teammate dropout, communication helps when it
+> preserves task intent; intent-grounded communication is the most robust form
+> of that signal.
 
 The key qualifier is important. This result does not say communication always helps under arbitrary dropout. It says communication helps when failure creates abandoned-task ambiguity: the failed teammate was carrying, assigned to, or nearest to requested work, and the surviving agent lacks direct access to that teammate's hidden intent. The earlier weaker random/fixed dropout results become useful contrast rather than failure: they show the communication benefit is conditional on the failure mode.
+
+## Randomized Targeted Robustness
+
+Two follow-up runs replaced deterministic target selection with
+`request-intent-random`, which samples from the highest non-empty
+request-relevance tier rather than always dropping the top-ranked agent.
+
+At `t=25`, intent-grounded communication remained significant against no
+communication:
+
+| Method | Last-5 Eval Mean | SD |
+| --- | ---: | ---: |
+| `mappo-no-comm` | 0.43 | 0.44 |
+| `mappo-comm` | 1.72 | 1.95 |
+| `mappo-intent-aux` | 5.27 | 2.90 |
+
+`mappo-intent-aux - mappo-no-comm`: mean diff `+4.84`, paired `p=0.0021`,
+Wilcoxon `p=0.0078`. Plain learned communication was positive but not
+significant (`p=0.1221`).
+
+At `t=50`, the intent-grounded result was stronger and also beat plain learned
+communication:
+
+| Method | Last-5 Eval Mean | SD |
+| --- | ---: | ---: |
+| `mappo-no-comm` | 1.20 | 1.43 |
+| `mappo-comm` | 2.36 | 1.90 |
+| `mappo-intent-aux` | 8.34 | 2.32 |
+
+`mappo-intent-aux - mappo-no-comm`: mean diff `+7.14`, paired `p=0.00045`,
+Wilcoxon `p=0.0078`.
+
+`mappo-intent-aux - mappo-comm`: mean diff `+5.97`, paired `p=0.0046`,
+Wilcoxon `p=0.0156`.
+
+This strengthens the final paper framing: deterministic targeted dropout shows
+that communication can help under an adversarial request-relevant failure, while
+randomized targeted dropout shows that task-grounded messages remain useful
+when failures are sampled from request-relevant agents. Unconstrained discrete
+communication is less reliable under randomized failures, so the robust claim
+should center on intent-grounded communication.
 
 ## Recommended Paper Figure Set
 
@@ -95,4 +138,5 @@ Use these figures in the paper or presentation:
 
 ## Remaining Follow-Up
 
-The strongest next robustness check is randomized targeted dropout: sample from task-relevant candidate agents instead of always dropping the top-ranked candidate. If the result holds there, the paper can claim the effect is not an artifact of always killing the maximally important agent.
+The result is now strong enough for the course paper. The main remaining work is
+paper drafting, final figure selection, and a concise presentation narrative.

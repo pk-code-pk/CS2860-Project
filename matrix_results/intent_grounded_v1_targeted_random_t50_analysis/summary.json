@@ -1,0 +1,320 @@
+{
+  "aggregate": [
+    {
+      "method": "mappo-no-comm",
+      "n": 8,
+      "last5_eval_mean": 1.195,
+      "last5_eval_sd": 1.4339622097697065,
+      "final_eval_mean": 2.0833333333333335,
+      "final_eval_sd": 2.3590420439405833,
+      "msg_acc_mean": 0.0,
+      "msg_acc_sd": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "n": 8,
+      "last5_eval_mean": 2.3625000000000003,
+      "last5_eval_sd": 1.8992527770444647,
+      "final_eval_mean": 3.004166666666667,
+      "final_eval_sd": 3.35879265439802,
+      "msg_acc_mean": 0.0,
+      "msg_acc_sd": 0.0
+    },
+    {
+      "method": "mappo-intent-aux",
+      "n": 8,
+      "last5_eval_mean": 8.336666666666666,
+      "last5_eval_sd": 2.317488377738361,
+      "final_eval_mean": 11.022916666666667,
+      "final_eval_sd": 6.22923176427205,
+      "msg_acc_mean": 0.6157533145899652,
+      "msg_acc_sd": 0.060306407588454625
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison": "mappo-comm - mappo-no-comm",
+      "n": 8,
+      "common_seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "mean_diff": 1.1675,
+      "sd_diff": 1.987869362703345,
+      "diffs": [
+        -2.0200000000000005,
+        -0.9533333333333334,
+        0.5900000000000001,
+        0.6666666666666667,
+        2.4766666666666666,
+        2.48,
+        2.076666666666666,
+        4.023333333333333
+      ],
+      "paired_t_two_sided_p": 0.1406355493962041,
+      "paired_t_greater_p": 0.07031777469810205,
+      "wilcoxon_two_sided_p": 0.1484375,
+      "wilcoxon_greater_p": 0.07421875
+    },
+    {
+      "comparison": "mappo-intent-aux - mappo-no-comm",
+      "n": 8,
+      "common_seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "mean_diff": 7.141666666666666,
+      "sd_diff": 3.2619499475493887,
+      "diffs": [
+        5.783333333333332,
+        9.016666666666666,
+        8.493333333333332,
+        10.983333333333333,
+        8.903333333333332,
+        7.6066666666666665,
+        0.19666666666666588,
+        6.15
+      ],
+      "paired_t_two_sided_p": 0.0004485114393794708,
+      "paired_t_greater_p": 0.0002242557196897354,
+      "wilcoxon_two_sided_p": 0.0078125,
+      "wilcoxon_greater_p": 0.00390625
+    },
+    {
+      "comparison": "mappo-intent-aux - mappo-comm",
+      "n": 8,
+      "common_seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "mean_diff": 5.974166666666666,
+      "sd_diff": 4.128398648002079,
+      "diffs": [
+        7.803333333333333,
+        9.969999999999999,
+        7.903333333333332,
+        10.316666666666666,
+        6.426666666666666,
+        5.126666666666666,
+        -1.8800000000000003,
+        2.126666666666667
+      ],
+      "paired_t_two_sided_p": 0.004613557688957632,
+      "paired_t_greater_p": 0.002306778844478816,
+      "wilcoxon_two_sided_p": 0.015625,
+      "wilcoxon_greater_p": 0.0078125
+    }
+  ],
+  "per_run": [
+    {
+      "method": "mappo-no-comm",
+      "seed": 0,
+      "run": "mappo-no-comm__dropout-only__d0__s0",
+      "last5_eval_return": 3.0200000000000005,
+      "final_eval_return": 7.633333333333334,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 1,
+      "run": "mappo-no-comm__dropout-only__d0__s1",
+      "last5_eval_return": 1.34,
+      "final_eval_return": 2.0166666666666666,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 2,
+      "run": "mappo-no-comm__dropout-only__d0__s2",
+      "last5_eval_return": 0.41,
+      "final_eval_return": 1.2333333333333334,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 3,
+      "run": "mappo-no-comm__dropout-only__d0__s3",
+      "last5_eval_return": 0.25,
+      "final_eval_return": 0.8333333333333334,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 4,
+      "run": "mappo-no-comm__dropout-only__d0__s4",
+      "last5_eval_return": 0.33333333333333337,
+      "final_eval_return": 1.25,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 5,
+      "run": "mappo-no-comm__dropout-only__d0__s5",
+      "last5_eval_return": 0.4133333333333334,
+      "final_eval_return": 1.25,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 6,
+      "run": "mappo-no-comm__dropout-only__d0__s6",
+      "last5_eval_return": 3.793333333333334,
+      "final_eval_return": 2.45,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 7,
+      "run": "mappo-no-comm__dropout-only__d0__s7",
+      "last5_eval_return": 0.0,
+      "final_eval_return": 0.0,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 0,
+      "run": "mappo-comm__dropout-only__d0__s0",
+      "last5_eval_return": 1.0,
+      "final_eval_return": 0.8333333333333334,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 1,
+      "run": "mappo-comm__dropout-only__d0__s1",
+      "last5_eval_return": 0.38666666666666666,
+      "final_eval_return": 0.8333333333333334,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 2,
+      "run": "mappo-comm__dropout-only__d0__s2",
+      "last5_eval_return": 1.0,
+      "final_eval_return": 5.0,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 3,
+      "run": "mappo-comm__dropout-only__d0__s3",
+      "last5_eval_return": 0.9166666666666667,
+      "final_eval_return": 0.4166666666666667,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 4,
+      "run": "mappo-comm__dropout-only__d0__s4",
+      "last5_eval_return": 2.81,
+      "final_eval_return": 5.0,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 5,
+      "run": "mappo-comm__dropout-only__d0__s5",
+      "last5_eval_return": 2.8933333333333335,
+      "final_eval_return": 0.8333333333333334,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 6,
+      "run": "mappo-comm__dropout-only__d0__s6",
+      "last5_eval_return": 5.87,
+      "final_eval_return": 9.866666666666667,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 7,
+      "run": "mappo-comm__dropout-only__d0__s7",
+      "last5_eval_return": 4.023333333333333,
+      "final_eval_return": 1.25,
+      "last50_msg_grounding_acc": 0.0
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 0,
+      "run": "mappo-intent-aux__dropout-only__d0__s0",
+      "last5_eval_return": 8.803333333333333,
+      "final_eval_return": 14.466666666666667,
+      "last50_msg_grounding_acc": 0.6123761954717338
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 1,
+      "run": "mappo-intent-aux__dropout-only__d0__s1",
+      "last5_eval_return": 10.356666666666666,
+      "final_eval_return": 14.4,
+      "last50_msg_grounding_acc": 0.601164017803967
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 2,
+      "run": "mappo-intent-aux__dropout-only__d0__s2",
+      "last5_eval_return": 8.903333333333332,
+      "final_eval_return": 9.5,
+      "last50_msg_grounding_acc": 0.6498481360264122
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 3,
+      "run": "mappo-intent-aux__dropout-only__d0__s3",
+      "last5_eval_return": 11.233333333333333,
+      "final_eval_return": 18.583333333333332,
+      "last50_msg_grounding_acc": 0.5102585112303495
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 4,
+      "run": "mappo-intent-aux__dropout-only__d0__s4",
+      "last5_eval_return": 9.236666666666666,
+      "final_eval_return": 6.55,
+      "last50_msg_grounding_acc": 0.5595887052407488
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 5,
+      "run": "mappo-intent-aux__dropout-only__d0__s5",
+      "last5_eval_return": 8.02,
+      "final_eval_return": 17.733333333333334,
+      "last50_msg_grounding_acc": 0.6564305132068694
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 6,
+      "run": "mappo-intent-aux__dropout-only__d0__s6",
+      "last5_eval_return": 3.9899999999999998,
+      "final_eval_return": 1.25,
+      "last50_msg_grounding_acc": 0.7044839257001877
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 7,
+      "run": "mappo-intent-aux__dropout-only__d0__s7",
+      "last5_eval_return": 6.15,
+      "final_eval_return": 5.7,
+      "last50_msg_grounding_acc": 0.6318765120394528
+    }
+  ]
+}
