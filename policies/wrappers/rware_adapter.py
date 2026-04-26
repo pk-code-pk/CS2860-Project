@@ -249,3 +249,59 @@ class RwareAdapter:
                 break
 
         return labels
+
+    def targeted_dropout_agent(
+        self,
+        *,
+        strategy: str | None,
+        alive: np.ndarray,
+        n_msg_tokens: int,
+    ) -> int | None:
+        """
+        Pick a runtime dropout target for diagnostics where failure should hit
+        meaningful work rather than an arbitrary fixed agent.
+
+        ``request-intent`` prioritizes agents carrying requested shelves, then
+        the live agent closest to any currently requested shelf. This makes the
+        dropout event create abandoned request pressure that intent-grounded
+        communication should be able to describe.
+        """
+        if strategy != "request-intent":
+            return None
+
+        base = self._env.unwrapped
+        alive_mask = np.asarray(alive, dtype=bool)
+        live = [i for i in range(self.spec.n_agents) if alive_mask[i]]
+        if not live:
+            return None
+
+        requests = list(getattr(base, "request_queue", []))
+        if not requests:
+            return int(live[0])
+        requested_ids = {getattr(s, "id", None) for s in requests}
+
+        carrying_requested: list[int] = []
+        for i in live:
+            shelf = getattr(base.agents[i], "carrying_shelf", None)
+            if shelf is not None and getattr(shelf, "id", None) in requested_ids:
+                carrying_requested.append(i)
+        if carrying_requested:
+            return int(carrying_requested[0])
+
+        # Reuse the same greedy intent labels as message grounding when
+        # possible; this selects agents assigned to a request slot.
+        labels = self.message_intent_labels(n_msg_tokens=n_msg_tokens, alive=alive_mask)
+        request_assigned = [i for i in live if int(labels[i]) >= 3]
+        if request_assigned:
+            return int(request_assigned[0])
+
+        triples: list[tuple[int, int]] = []
+        for i in live:
+            ag = base.agents[i]
+            best = min(
+                abs(int(ag.x) - int(s.x)) + abs(int(ag.y) - int(s.y))
+                for s in requests
+            )
+            triples.append((best, i))
+        triples.sort()
+        return int(triples[0][1])

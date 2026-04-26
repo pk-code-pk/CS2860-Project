@@ -197,6 +197,7 @@ def _build_train_cmd(
     dropout_time: int,
     dropout_window_start: int | None,
     dropout_window_end: int | None,
+    dropout_target_strategy: str | None,
     heartbeat_period: int,
     heartbeat_max_age_clip: int,
     shape_rewards: bool,
@@ -262,6 +263,13 @@ def _build_train_cmd(
             used["dropout_mode"] = "window"
             used["dropout_window_start"] = dropout_window_start
             used["dropout_window_end"] = dropout_window_end
+        elif dropout_target_strategy is not None:
+            cmd.extend(["--dropout-time", str(dropout_time)])
+            cmd.extend(["--dropout-target-strategy", dropout_target_strategy])
+            used["dropout"] = True
+            used["dropout_mode"] = "targeted"
+            used["dropout_time"] = dropout_time
+            used["dropout_target_strategy"] = dropout_target_strategy
         else:
             cmd.extend(["--dropout-agent", str(dropout_agent)])
             cmd.extend(["--dropout-time", str(dropout_time)])
@@ -438,6 +446,7 @@ def build_plans(
                             dropout_time=args.dropout_time,
                             dropout_window_start=args.dropout_window_start,
                             dropout_window_end=args.dropout_window_end,
+                            dropout_target_strategy=args.dropout_target_strategy,
                             heartbeat_period=args.heartbeat_period,
                             heartbeat_max_age_clip=args.heartbeat_max_age_clip,
                             shape_rewards=args.shape_rewards,
@@ -816,6 +825,11 @@ def _parse_args() -> argparse.Namespace:
                    help="Upper bound (exclusive) of the per-episode dropout "
                         "step window. Must be set together with --dropout-"
                         "window-start to enable window mode.")
+    p.add_argument("--dropout-target-strategy", choices=["request-intent"], default=None,
+                   help="Targeted mode for MAPPO cells: choose the failed agent "
+                        "at --dropout-time based on current task state. "
+                        "'request-intent' targets carrying/assigned/closest "
+                        "requested work. Mutually exclusive with window mode.")
 
     # Reward shaping (forwarded to MAPPO trainings only; heuristic doesn't learn).
     p.add_argument("--shape-rewards", action="store_true",
