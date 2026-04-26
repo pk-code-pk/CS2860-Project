@@ -23,6 +23,7 @@ from typing import Any
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from .buffer import RolloutBatch, RolloutBuffer
 from .networks import CentralCritic, CommActor, evaluate_actions, sample_actions
@@ -51,6 +52,7 @@ class MAPPOConfig:
 
     # Misc
     device: str = "cpu"
+    message_grounding_coef: float = 0.0
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -145,6 +147,8 @@ class MAPPOTrainer:
             "policy_loss": 0.0,
             "value_loss": 0.0,
             "entropy": 0.0,
+            "message_grounding_loss": 0.0,
+            "message_grounding_acc": 0.0,
             "approx_kl": 0.0,
             "clip_frac": 0.0,
         }
@@ -203,10 +207,22 @@ class MAPPOTrainer:
         v_loss_clipped = (v_pred_clipped - mb.returns) ** 2
         value_loss = 0.5 * torch.max(v_loss_unclipped, v_loss_clipped).mean()
 
+        msg_grounding_loss = torch.zeros((), device=self.device)
+        msg_grounding_acc = torch.zeros((), device=self.device)
+        if self.cfg.message_grounding_coef > 0.0:
+            labels = mb.msg_labels.long()
+            valid = (labels >= 0) & (labels < self.n_msg_tokens) & (mb.alive > 0.5)
+            if valid.any():
+                msg_grounding_loss = F.cross_entropy(msg_logits[valid], labels[valid])
+                with torch.no_grad():
+                    pred = msg_logits[valid].argmax(dim=-1)
+                    msg_grounding_acc = (pred == labels[valid]).float().mean()
+
         total = (
             policy_loss
             + self.cfg.value_coef * value_loss
             + self.cfg.entropy_coef * ent_loss
+            + self.cfg.message_grounding_coef * msg_grounding_loss
         )
 
         self.opt_actor.zero_grad(set_to_none=True)
@@ -225,6 +241,8 @@ class MAPPOTrainer:
             "policy_loss": float(policy_loss.item()),
             "value_loss": float(value_loss.item()),
             "entropy": float(entropy_per_t.mean().item()),
+            "message_grounding_loss": float(msg_grounding_loss.item()),
+            "message_grounding_acc": float(msg_grounding_acc.item()),
             "approx_kl": float(approx_kl),
             "clip_frac": float(clip_frac),
         }
@@ -253,6 +271,7 @@ def _gather(batch: RolloutBatch, idx: np.ndarray) -> RolloutBatch:
         messages=batch.messages.index_select(0, idx_t),
         alive=batch.alive.index_select(0, idx_t),
         avail=batch.avail.index_select(0, idx_t),
+        msg_labels=batch.msg_labels.index_select(0, idx_t),
         env_actions=batch.env_actions.index_select(0, idx_t),
         msg_actions=batch.msg_actions.index_select(0, idx_t),
         logp_env=batch.logp_env.index_select(0, idx_t),

@@ -1,0 +1,200 @@
+{
+  "completed_runs": 72,
+  "contrasts": {
+    "rware-medium-2ag-easy-v2": {
+      "mappo-no-comm": {
+        "baseline_eval_final": 15.575,
+        "dropout_eval_final": 0.0,
+        "dropout_minus_baseline_eval_final": -15.575,
+        "baseline_eval_mean_all": 4.671875,
+        "dropout_eval_mean_all": 0.0,
+        "dropout_minus_baseline_eval_mean_all": -4.671875,
+        "baseline_train_last50": 1.08,
+        "dropout_train_last50": 0.4275,
+        "dropout_minus_baseline_train_last50": -0.6525000000000001,
+        "dropout_msg_acc_last50": 0.0
+      },
+      "mappo-comm": {
+        "baseline_eval_final": 3.125,
+        "dropout_eval_final": 3.1125,
+        "dropout_minus_baseline_eval_final": -0.012500000000000178,
+        "baseline_eval_mean_all": 0.78125,
+        "dropout_eval_mean_all": 0.778125,
+        "dropout_minus_baseline_eval_mean_all": -0.0031250000000000444,
+        "baseline_train_last50": 1.2175,
+        "dropout_train_last50": 0.6425,
+        "dropout_minus_baseline_train_last50": -0.5750000000000001,
+        "dropout_msg_acc_last50": 0.0
+      },
+      "mappo-intent-aux": {
+        "baseline_eval_final": 9.325,
+        "dropout_eval_final": 6.25,
+        "dropout_minus_baseline_eval_final": -3.0749999999999993,
+        "baseline_eval_mean_all": 3.1125,
+        "dropout_eval_mean_all": 1.5625,
+        "dropout_minus_baseline_eval_mean_all": -1.5499999999999998,
+        "baseline_train_last50": 1.36,
+        "dropout_train_last50": 0.87875,
+        "dropout_minus_baseline_train_last50": -0.48125000000000007,
+        "dropout_msg_acc_last50": 0.6467228266841266
+      },
+      "benefit_baseline": {
+        "free_minus_no_eval_final": -12.45,
+        "intent_minus_no_eval_final": -6.25,
+        "intent_minus_free_eval_final": 6.199999999999999,
+        "free_minus_no_eval_mean_all": -3.890625,
+        "intent_minus_no_eval_mean_all": -1.5593750000000002,
+        "intent_minus_free_eval_mean_all": 2.33125,
+        "free_minus_no_train_last50": 0.13749999999999996,
+        "intent_minus_no_train_last50": 0.28,
+        "intent_minus_free_train_last50": 0.14250000000000007
+      },
+      "benefit_dropout-only": {
+        "free_minus_no_eval_final": 3.1125,
+        "intent_minus_no_eval_final": 6.25,
+        "intent_minus_free_eval_final": 3.1375,
+        "free_minus_no_eval_mean_all": 0.778125,
+        "intent_minus_no_eval_mean_all": 1.5625,
+        "intent_minus_free_eval_mean_all": 0.784375,
+        "free_minus_no_train_last50": 0.21499999999999997,
+        "intent_minus_no_train_last50": 0.45125000000000004,
+        "intent_minus_free_train_last50": 0.23625000000000007
+      },
+      "interaction": {
+        "intent_vs_free_rescue_eval_final": -3.062499999999999,
+        "intent_vs_free_rescue_eval_mean_all": -1.5468749999999998,
+        "intent_vs_free_rescue_train": 0.09375
+      }
+    },
+    "rware-small-2ag-easy-v2": {
+      "mappo-no-comm": {
+        "baseline_eval_final": 3.125,
+        "dropout_eval_final": 0.0,
+        "dropout_minus_baseline_eval_final": -3.125,
+        "baseline_eval_mean_all": 3.125,
+        "dropout_eval_mean_all": 1.5625,
+        "dropout_minus_baseline_eval_mean_all": -1.5625,
+        "baseline_train_last50": 12.38375,
+        "dropout_train_last50": 1.78375,
+        "dropout_minus_baseline_train_last50": -10.6,
+        "dropout_msg_acc_last50": 0.0
+      },
+      "mappo-comm": {
+        "baseline_eval_final": 0.0,
+        "dropout_eval_final": 0.5875,
+        "dropout_minus_baseline_eval_final": 0.5875,
+        "baseline_eval_mean_all": 0.78125,
+        "dropout_eval_mean_all": 1.7125,
+        "dropout_minus_baseline_eval_mean_all": 0.9312499999999999,
+        "baseline_train_last50": 6.748749999999999,
+        "dropout_train_last50": 1.3399999999999999,
+        "dropout_minus_baseline_train_last50": -5.4087499999999995,
+        "dropout_msg_acc_last50": 0.0
+      },
+      "mappo-intent-aux": {
+        "baseline_eval_final": 3.125,
+        "dropout_eval_final": 0.0,
+        "dropout_minus_baseline_eval_final": -3.125,
+        "baseline_eval_mean_all": 2.346875,
+        "dropout_eval_mean_all": 0.790625,
+        "dropout_minus_baseline_eval_mean_all": -1.55625,
+        "baseline_train_last50": 6.23,
+        "dropout_train_last50": 2.41375,
+        "dropout_minus_baseline_train_last50": -3.8162500000000006,
+        "dropout_msg_acc_last50": 0.6001017653429881
+      },
+      "benefit_baseline": {
+        "free_minus_no_eval_final": -3.125,
+        "intent_minus_no_eval_final": 0.0,
+        "intent_minus_free_eval_final": 3.125,
+        "free_minus_no_eval_mean_all": -2.34375,
+        "intent_minus_no_eval_mean_all": -0.7781250000000002,
+        "intent_minus_free_eval_mean_all": 1.5656249999999998,
+        "free_minus_no_train_last50": -5.635,
+        "intent_minus_no_train_last50": -6.153749999999999,
+        "intent_minus_free_train_last50": -0.5187499999999989
+      },
+      "benefit_dropout-only": {
+        "free_minus_no_eval_final": 0.5875,
+        "intent_minus_no_eval_final": 0.0,
+        "intent_minus_free_eval_final": -0.5875,
+        "free_minus_no_eval_mean_all": 0.1499999999999999,
+        "intent_minus_no_eval_mean_all": -0.771875,
+        "intent_minus_free_eval_mean_all": -0.9218749999999999,
+        "free_minus_no_train_last50": -0.4437500000000001,
+        "intent_minus_no_train_last50": 0.6299999999999999,
+        "intent_minus_free_train_last50": 1.07375
+      },
+      "interaction": {
+        "intent_vs_free_rescue_eval_final": -3.7125,
+        "intent_vs_free_rescue_eval_mean_all": -2.4875,
+        "intent_vs_free_rescue_train": 1.592499999999999
+      }
+    },
+    "rware-tiny-2ag-easy-v2": {
+      "mappo-no-comm": {
+        "baseline_eval_final": 3.0875,
+        "dropout_eval_final": 6.1125,
+        "dropout_minus_baseline_eval_final": 3.025,
+        "baseline_eval_mean_all": 14.818750000000001,
+        "dropout_eval_mean_all": 10.721875,
+        "dropout_minus_baseline_eval_mean_all": -4.096875000000001,
+        "baseline_train_last50": 84.2925,
+        "dropout_train_last50": 51.20125,
+        "dropout_minus_baseline_train_last50": -33.09125,
+        "dropout_msg_acc_last50": 0.0
+      },
+      "mappo-comm": {
+        "baseline_eval_final": 6.2,
+        "dropout_eval_final": 0.575,
+        "dropout_minus_baseline_eval_final": -5.625,
+        "baseline_eval_mean_all": 14.815625,
+        "dropout_eval_mean_all": 9.65625,
+        "dropout_minus_baseline_eval_mean_all": -5.159375000000001,
+        "baseline_train_last50": 63.5225,
+        "dropout_train_last50": 20.37,
+        "dropout_minus_baseline_train_last50": -43.1525,
+        "dropout_msg_acc_last50": 0.0
+      },
+      "mappo-intent-aux": {
+        "baseline_eval_final": 0.0,
+        "dropout_eval_final": 0.6,
+        "dropout_minus_baseline_eval_final": 0.6,
+        "baseline_eval_mean_all": 10.140625,
+        "dropout_eval_mean_all": 8.58125,
+        "dropout_minus_baseline_eval_mean_all": -1.5593749999999993,
+        "baseline_train_last50": 62.99375,
+        "dropout_train_last50": 43.8275,
+        "dropout_minus_baseline_train_last50": -19.166249999999998,
+        "dropout_msg_acc_last50": 0.5527529761142795
+      },
+      "benefit_baseline": {
+        "free_minus_no_eval_final": 3.1125000000000003,
+        "intent_minus_no_eval_final": -3.0875,
+        "intent_minus_free_eval_final": -6.2,
+        "free_minus_no_eval_mean_all": -0.0031250000000007105,
+        "intent_minus_no_eval_mean_all": -4.678125000000001,
+        "intent_minus_free_eval_mean_all": -4.675000000000001,
+        "free_minus_no_train_last50": -20.770000000000003,
+        "intent_minus_no_train_last50": -21.298750000000005,
+        "intent_minus_free_train_last50": -0.5287500000000023
+      },
+      "benefit_dropout-only": {
+        "free_minus_no_eval_final": -5.5375,
+        "intent_minus_no_eval_final": -5.5125,
+        "intent_minus_free_eval_final": 0.025000000000000022,
+        "free_minus_no_eval_mean_all": -1.0656250000000007,
+        "intent_minus_no_eval_mean_all": -2.140625,
+        "intent_minus_free_eval_mean_all": -1.0749999999999993,
+        "free_minus_no_train_last50": -30.83125,
+        "intent_minus_no_train_last50": -7.373750000000001,
+        "intent_minus_free_train_last50": 23.4575
+      },
+      "interaction": {
+        "intent_vs_free_rescue_eval_final": 6.2250000000000005,
+        "intent_vs_free_rescue_eval_mean_all": 3.6000000000000014,
+        "intent_vs_free_rescue_train": 23.986250000000002
+      }
+    }
+  }
+}

@@ -19,6 +19,16 @@ from .buffer import RolloutBuffer
 from .mappo import MAPPOTrainer
 
 
+def _message_intent_labels(state: dict[str, np.ndarray]) -> np.ndarray | None:
+    info = state.get("info")
+    if not isinstance(info, dict):
+        return None
+    labels = info.get("debug_message_intent_labels")
+    if labels is None:
+        return None
+    return np.asarray(labels, dtype=np.int64)
+
+
 @dataclass
 class RolloutStats:
     episode_returns: list[float] = field(default_factory=list)
@@ -77,6 +87,7 @@ class Runner:
                 messages=s["messages"],
                 alive=s["alive"],
                 avail=s["available_actions"],
+                msg_labels=_message_intent_labels(s),
                 env_actions=env_a,
                 msg_actions=msg_a,
                 logp_env=out["logp_env"],
