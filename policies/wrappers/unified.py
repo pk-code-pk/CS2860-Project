@@ -46,6 +46,7 @@ mechanism is off):
   info["debug_dropout_fired"]  bool
   info["debug_failed_agent"]   int  (-1 if no dropout has fired)
   info["debug_heartbeat_age"]  int64 (n_agents, n_agents)
+  info["debug_message_intent_labels"] int64 (n_agents,)
 """
 
 from __future__ import annotations
@@ -95,12 +96,14 @@ class BaseAdapter(Protocol):
 @dataclass
 class DropoutConfig:
     """
-    Controlled permanent-dropout config. Two modes:
+    Controlled permanent-dropout config. Three modes:
 
       * Fixed:   ``agent`` and ``time`` are both set -> deterministic.
       * Window:  only ``window_start`` / ``window_end`` set -> random agent
                  & random step inside the window, drawn with the wrapper's
                  reset seed.
+      * Targeted: ``time`` and ``target_strategy`` are set -> choose the agent
+                  to fail at runtime from the current environment state.
 
     Leaving ``enabled`` False makes the wrapper behave exactly like the
     pre-mechanism baseline.
@@ -111,18 +114,37 @@ class DropoutConfig:
     time: int | None = None
     window_start: int | None = None
     window_end: int | None = None
+    target_strategy: str | None = None
 
     def __post_init__(self) -> None:
-        fixed_specified = self.agent is not None or self.time is not None
+        targeted_specified = self.target_strategy is not None
+        fixed_specified = (
+            self.agent is not None
+            or (self.time is not None and not targeted_specified)
+        )
         window_specified = self.window_start is not None or self.window_end is not None
         if not self.enabled:
             return
-        if fixed_specified and window_specified:
+        if sum([bool(fixed_specified), bool(window_specified), bool(targeted_specified)]) > 1:
             raise ValueError(
-                "DropoutConfig: provide either fixed (agent+time) OR a random "
-                "window (window_start/end), not both."
+                "DropoutConfig: provide only one dropout mode: fixed, window, "
+                "or targeted."
             )
-        if fixed_specified:
+        if targeted_specified:
+            if self.target_strategy not in {"request-intent"}:
+                raise ValueError(
+                    "DropoutConfig: target_strategy must be 'request-intent'."
+                )
+            if self.agent is not None:
+                raise ValueError(
+                    "DropoutConfig: targeted mode chooses the agent at runtime; "
+                    "do not set --dropout-agent."
+                )
+            if self.time is None or self.time < 0:
+                raise ValueError(
+                    "DropoutConfig: targeted mode needs non-negative --dropout-time."
+                )
+        elif fixed_specified:
             if self.agent is None or self.time is None:
                 raise ValueError(
                     "DropoutConfig: fixed mode needs both --dropout-agent and "
@@ -143,8 +165,8 @@ class DropoutConfig:
                 )
         else:
             raise ValueError(
-                "DropoutConfig: enabled but neither fixed nor window mode was "
-                "specified."
+                "DropoutConfig: enabled but no fixed, window, or targeted mode "
+                "was specified."
             )
 
 
@@ -380,6 +402,8 @@ class UnifiedMARLEnv:
             # Fixed mode takes precedence (validated in __post_init__).
             agent = int(cfg.agent) % self._n_agents
             return _DropoutState(agent=agent, time=int(cfg.time), fired=False)
+        if cfg.target_strategy is not None and cfg.time is not None:
+            return _DropoutState(agent=None, time=int(cfg.time), fired=False)
         # Window mode.
         assert cfg.window_start is not None and cfg.window_end is not None
         t = int(self._dropout_rng.integers(cfg.window_start, cfg.window_end))
@@ -398,16 +422,39 @@ class UnifiedMARLEnv:
             self.dropout_cfg.enabled
             and not ds.fired
             and ds.time is not None
-            and ds.agent is not None
             and self._t >= ds.time
-            and 0 <= ds.agent < self._n_agents
         ):
-            alive[ds.agent] = False
+            agent = ds.agent
+            if agent is None:
+                agent = self._select_targeted_dropout_agent(alive)
+                ds.agent = agent
+            if agent is None or not (0 <= agent < self._n_agents):
+                ds.fired = True
+                return alive
+            alive[agent] = False
             ds.fired = True
             # Persist into `_alive` as well so the failed agent cannot be
             # resurrected even if the adapter's alive_after claims otherwise.
-            self._alive[ds.agent] = False
+            self._alive[agent] = False
         return alive
+
+    def _select_targeted_dropout_agent(self, alive: np.ndarray) -> int | None:
+        provider = getattr(self.adapter, "targeted_dropout_agent", None)
+        if provider is not None:
+            try:
+                agent = provider(
+                    strategy=self.dropout_cfg.target_strategy,
+                    alive=alive,
+                    n_msg_tokens=self.n_msg_tokens,
+                )
+                if agent is not None:
+                    return int(agent)
+            except Exception:
+                pass
+        live = np.where(alive)[0]
+        if len(live) == 0:
+            return None
+        return int(live[0])
 
     # ---- obs / info helpers ------------------------------------------
 
@@ -437,7 +484,22 @@ class UnifiedMARLEnv:
             else -1
         )
         info["debug_heartbeat_age"] = self._tracker.ages()
+        info["debug_message_intent_labels"] = self._message_intent_labels()
         return info
+
+    def _message_intent_labels(self) -> np.ndarray:
+        provider = getattr(self.adapter, "message_intent_labels", None)
+        if provider is None:
+            return np.full(self._n_agents, -1, dtype=np.int64)
+        try:
+            return np.asarray(
+                provider(n_msg_tokens=self.n_msg_tokens, alive=self._alive),
+                dtype=np.int64,
+            )
+        except Exception:
+            # Intent labels are an optional diagnostic signal; never let them
+            # break normal environment stepping.
+            return np.full(self._n_agents, -1, dtype=np.int64)
 
 
 # ---------------------------------------------------------------------------

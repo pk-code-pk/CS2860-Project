@@ -56,6 +56,14 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--minibatches", type=int, default=4)
     p.add_argument("--clip-range", type=float, default=0.2)
     p.add_argument("--entropy-coef", type=float, default=0.01)
+    p.add_argument("--message-grounding", choices=["none", "rware-intent"], default="none",
+                   help="Optional supervised grounding target for the message "
+                        "head. 'rware-intent' labels messages with task intent "
+                        "(available/carrying/assigned request slot) while PPO "
+                        "still learns the policy.")
+    p.add_argument("--message-grounding-coef", type=float, default=0.0,
+                   help="Weight for the message grounding auxiliary loss. "
+                        "Set >0 with --message-grounding rware-intent.")
     p.add_argument("--gamma", type=float, default=0.99)
     p.add_argument("--gae-lambda", type=float, default=0.95)
     p.add_argument("--save", type=str, default=None, help="Path to save the final checkpoint")
@@ -76,6 +84,11 @@ def _parse_args() -> argparse.Namespace:
                    help="Window mode: inclusive start of uniform-random dropout step.")
     p.add_argument("--dropout-window-end", type=int, default=None,
                    help="Window mode: exclusive end of uniform-random dropout step.")
+    p.add_argument("--dropout-target-strategy", choices=["request-intent"], default=None,
+                   help="Targeted mode: choose the failed agent at --dropout-time "
+                        "from current task state instead of using --dropout-agent. "
+                        "'request-intent' drops an agent carrying/assigned/closest "
+                        "to requested work.")
 
     # --- Ambiguity mechanism: delayed heartbeats ---
     p.add_argument("--heartbeat", action="store_true",
@@ -129,6 +142,7 @@ def main() -> None:
         time=args.dropout_time,
         window_start=args.dropout_window_start,
         window_end=args.dropout_window_end,
+        target_strategy=args.dropout_target_strategy,
     )
     heartbeat_cfg = HeartbeatConfig(
         enabled=args.heartbeat,
@@ -169,6 +183,11 @@ def main() -> None:
         hidden=args.hidden,
         depth=args.depth,
         device=args.device,
+        message_grounding_coef=(
+            max(0.0, args.message_grounding_coef)
+            if args.message_grounding != "none"
+            else 0.0
+        ),
     )
     trainer = MAPPOTrainer(
         obs_dim=spec.obs_dim,
@@ -222,6 +241,8 @@ def main() -> None:
                 "loss/policy": losses["policy_loss"],
                 "loss/value": losses["value_loss"],
                 "loss/entropy": losses["entropy"],
+                "loss/message_grounding": losses.get("message_grounding_loss", 0.0),
+                "loss/message_grounding_acc": losses.get("message_grounding_acc", 0.0),
                 "loss/approx_kl": losses["approx_kl"],
                 "loss/clip_frac": losses["clip_frac"],
                 "time/elapsed_s": elapsed,
@@ -235,7 +256,9 @@ def main() -> None:
                 f"ret_mean={scalars['train/ep_return_mean']:.3f} "
                 f"ep_len={scalars['train/ep_length_mean']:.1f} "
                 f"pi_loss={losses['policy_loss']:.3f} v_loss={losses['value_loss']:.3f} "
-                f"ent={losses['entropy']:.3f} kl={losses['approx_kl']:.4f}"
+                f"ent={losses['entropy']:.3f} "
+                f"msg_acc={losses.get('message_grounding_acc', 0.0):.3f} "
+                f"kl={losses['approx_kl']:.4f}"
             )
             print(line, flush=True)
 

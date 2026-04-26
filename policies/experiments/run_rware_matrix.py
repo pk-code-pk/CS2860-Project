@@ -108,6 +108,7 @@ class MethodSpec:
     kind: str  # "mappo" or "heuristic"
     heartbeat: bool  # expose heartbeat signal in obs (wrapper-side)
     comm: bool  # learn message tokens (mappo-only flag)
+    message_grounding: str = "none"
 
 
 METHODS: dict[str, MethodSpec] = {
@@ -117,6 +118,16 @@ METHODS: dict[str, MethodSpec] = {
     "mappo-no-comm": MethodSpec(
         name="mappo-no-comm", kind="mappo", heartbeat=False, comm=False
     ),
+    "mappo-comm": MethodSpec(
+        name="mappo-comm", kind="mappo", heartbeat=False, comm=True
+    ),
+    "mappo-intent-aux": MethodSpec(
+        name="mappo-intent-aux",
+        kind="mappo",
+        heartbeat=False,
+        comm=True,
+        message_grounding="rware-intent",
+    ),
     "mappo-heartbeat-only": MethodSpec(
         name="mappo-heartbeat-only", kind="mappo", heartbeat=True, comm=False
     ),
@@ -124,6 +135,13 @@ METHODS: dict[str, MethodSpec] = {
         name="mappo-heartbeat-plus-comm", kind="mappo", heartbeat=True, comm=True
     ),
 }
+
+DEFAULT_METHODS = [
+    "heuristic",
+    "mappo-no-comm",
+    "mappo-heartbeat-only",
+    "mappo-heartbeat-plus-comm",
+]
 
 
 @dataclass(frozen=True)
@@ -179,12 +197,14 @@ def _build_train_cmd(
     dropout_time: int,
     dropout_window_start: int | None,
     dropout_window_end: int | None,
+    dropout_target_strategy: str | None,
     heartbeat_period: int,
     heartbeat_max_age_clip: int,
     shape_rewards: bool,
     pickup_bonus: float,
     step_penalty: float,
     disable_message_echo: bool,
+    message_grounding_coef: float,
 ) -> tuple[list[str], dict[str, Any]]:
     cmd: list[str] = [
         python,
@@ -213,6 +233,12 @@ def _build_train_cmd(
         cmd.append("--no-comm")
 
     used: dict[str, Any] = {}
+    if method.message_grounding != "none":
+        cmd.extend(["--message-grounding", method.message_grounding])
+        cmd.extend(["--message-grounding-coef", str(message_grounding_coef)])
+        used["message_grounding"] = method.message_grounding
+        used["message_grounding_coef"] = message_grounding_coef
+
     if method.heartbeat:
         cmd.append("--heartbeat")
         cmd.extend(["--heartbeat-period", str(heartbeat_period)])
@@ -237,6 +263,13 @@ def _build_train_cmd(
             used["dropout_mode"] = "window"
             used["dropout_window_start"] = dropout_window_start
             used["dropout_window_end"] = dropout_window_end
+        elif dropout_target_strategy is not None:
+            cmd.extend(["--dropout-time", str(dropout_time)])
+            cmd.extend(["--dropout-target-strategy", dropout_target_strategy])
+            used["dropout"] = True
+            used["dropout_mode"] = "targeted"
+            used["dropout_time"] = dropout_time
+            used["dropout_target_strategy"] = dropout_target_strategy
         else:
             cmd.extend(["--dropout-agent", str(dropout_agent)])
             cmd.extend(["--dropout-time", str(dropout_time)])
@@ -413,12 +446,14 @@ def build_plans(
                             dropout_time=args.dropout_time,
                             dropout_window_start=args.dropout_window_start,
                             dropout_window_end=args.dropout_window_end,
+                            dropout_target_strategy=args.dropout_target_strategy,
                             heartbeat_period=args.heartbeat_period,
                             heartbeat_max_age_clip=args.heartbeat_max_age_clip,
                             shape_rewards=args.shape_rewards,
                             pickup_bonus=args.pickup_bonus,
                             step_penalty=args.step_penalty,
                             disable_message_echo=args.disable_message_echo,
+                            message_grounding_coef=args.message_grounding_coef,
                         )
                     elif method.kind == "heuristic":
                         cmd, used = _build_heuristic_cmd(
@@ -739,7 +774,7 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument(
         "--methods",
         nargs="+",
-        default=list(METHODS.keys()),
+        default=DEFAULT_METHODS,
         choices=list(METHODS.keys()),
     )
     p.add_argument(
@@ -758,6 +793,9 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--n-msg-tokens", type=int, default=8)
     p.add_argument("--eval-every", type=int, default=10)
     p.add_argument("--eval-episodes", type=int, default=3)
+    p.add_argument("--message-grounding-coef", type=float, default=0.2,
+                   help="Auxiliary loss weight for methods with grounded "
+                        "message labels, e.g. mappo-intent-aux.")
     p.add_argument("--save-dir", default=None,
                    help="If set, MAPPO checkpoints are saved here.")
 
@@ -787,6 +825,11 @@ def _parse_args() -> argparse.Namespace:
                    help="Upper bound (exclusive) of the per-episode dropout "
                         "step window. Must be set together with --dropout-"
                         "window-start to enable window mode.")
+    p.add_argument("--dropout-target-strategy", choices=["request-intent"], default=None,
+                   help="Targeted mode for MAPPO cells: choose the failed agent "
+                        "at --dropout-time based on current task state. "
+                        "'request-intent' targets carrying/assigned/closest "
+                        "requested work. Mutually exclusive with window mode.")
 
     # Reward shaping (forwarded to MAPPO trainings only; heuristic doesn't learn).
     p.add_argument("--shape-rewards", action="store_true",

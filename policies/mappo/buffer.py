@@ -38,6 +38,7 @@ class RolloutBatch:
     messages: torch.Tensor
     alive: torch.Tensor
     avail: torch.Tensor
+    msg_labels: torch.Tensor
     env_actions: torch.Tensor
     msg_actions: torch.Tensor
     logp_env: torch.Tensor
@@ -71,6 +72,7 @@ class RolloutBuffer:
         self.messages = np.zeros((self.T, self.N, self.n_msg_tokens), dtype=np.float32)
         self.alive = np.zeros((self.T, self.N), dtype=bool)
         self.avail = np.zeros((self.T, self.N, self.n_env_actions), dtype=np.uint8)
+        self.msg_labels = np.full((self.T, self.N), -1, dtype=np.int64)
         self.env_actions = np.zeros((self.T, self.N), dtype=np.int64)
         self.msg_actions = np.zeros((self.T, self.N), dtype=np.int64)
         self.logp_env = np.zeros((self.T, self.N), dtype=np.float32)
@@ -92,6 +94,7 @@ class RolloutBuffer:
         messages: np.ndarray,
         alive: np.ndarray,
         avail: np.ndarray,
+        msg_labels: np.ndarray | None,
         env_actions: np.ndarray,
         msg_actions: np.ndarray,
         logp_env: np.ndarray,
@@ -106,6 +109,14 @@ class RolloutBuffer:
         self.messages[t] = messages
         self.alive[t] = alive
         self.avail[t] = avail
+        if msg_labels is None:
+            self.msg_labels[t] = -1
+        else:
+            labels = np.asarray(msg_labels, dtype=np.int64)
+            assert labels.shape == (self.N,), (
+                f"expected msg_labels shape {(self.N,)}, got {labels.shape}"
+            )
+            self.msg_labels[t] = labels
         self.env_actions[t] = env_actions
         self.msg_actions[t] = msg_actions
         self.logp_env[t] = logp_env
@@ -154,6 +165,7 @@ class RolloutBuffer:
             messages=torch.from_numpy(self.messages[:T]),
             alive=torch.from_numpy(self.alive[:T]).float(),
             avail=torch.from_numpy(self.avail[:T]).float(),
+            msg_labels=torch.from_numpy(self.msg_labels[:T]),
             env_actions=torch.from_numpy(self.env_actions[:T]),
             msg_actions=torch.from_numpy(self.msg_actions[:T]),
             logp_env=torch.from_numpy(self.logp_env[:T]),
