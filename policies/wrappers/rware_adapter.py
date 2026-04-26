@@ -171,3 +171,81 @@ class RwareAdapter:
                 continue
             out[i] = shelf.id in requested_ids
         return out
+
+    def message_intent_labels(
+        self,
+        *,
+        n_msg_tokens: int,
+        alive: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """
+        Return supervised message labels for grounded intent communication.
+
+        Labels are fixed semantic tokens, not learned language meanings:
+
+        * 0: available / idle / no assigned request
+        * 1: carrying a requested shelf toward delivery
+        * 2: carrying a non-requested shelf
+        * 3+k: assigned to request-queue slot k (clipped to available tokens)
+
+        The assignment labels give the message channel information heartbeat
+        cannot provide: which piece of work a teammate was handling before
+        dropout. Dead agents are assigned 0 here; the wrapper masks them out
+        of the auxiliary loss and continues echoing their last live message.
+        """
+        n_tokens = max(1, int(n_msg_tokens))
+        labels = np.zeros(self.spec.n_agents, dtype=np.int64)
+        if n_tokens <= 1:
+            return labels
+
+        base = self._env.unwrapped
+        alive_mask = (
+            np.ones(self.spec.n_agents, dtype=bool)
+            if alive is None
+            else np.asarray(alive, dtype=bool)
+        )
+        requests = list(getattr(base, "request_queue", []))
+        requested_ids = {getattr(s, "id", None) for s in requests}
+
+        already_busy: set[int] = set()
+        for i, agent in enumerate(base.agents):
+            if not alive_mask[i]:
+                continue
+            shelf = getattr(agent, "carrying_shelf", None)
+            if shelf is None:
+                continue
+            if getattr(shelf, "id", None) in requested_ids:
+                labels[i] = min(1, n_tokens - 1)
+                already_busy.add(i)
+            else:
+                labels[i] = min(2, n_tokens - 1)
+                already_busy.add(i)
+
+        if not requests or n_tokens <= 3:
+            return labels
+
+        candidate_agents = [
+            i for i in range(self.spec.n_agents)
+            if alive_mask[i] and i not in already_busy
+        ]
+        triples: list[tuple[int, int, int]] = []
+        for ai in candidate_agents:
+            ag = base.agents[ai]
+            for slot_idx, shelf in enumerate(requests):
+                d = abs(int(ag.x) - int(shelf.x)) + abs(int(ag.y) - int(shelf.y))
+                triples.append((d, ai, slot_idx))
+        triples.sort()
+
+        used_agents: set[int] = set()
+        used_slots: set[int] = set()
+        for _dist, agent_idx, slot_idx in triples:
+            if agent_idx in used_agents or slot_idx in used_slots:
+                continue
+            token = min(3 + slot_idx, n_tokens - 1)
+            labels[agent_idx] = token
+            used_agents.add(agent_idx)
+            used_slots.add(slot_idx)
+            if len(used_agents) == len(candidate_agents):
+                break
+
+        return labels

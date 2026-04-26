@@ -46,6 +46,7 @@ mechanism is off):
   info["debug_dropout_fired"]  bool
   info["debug_failed_agent"]   int  (-1 if no dropout has fired)
   info["debug_heartbeat_age"]  int64 (n_agents, n_agents)
+  info["debug_message_intent_labels"] int64 (n_agents,)
 """
 
 from __future__ import annotations
@@ -437,7 +438,22 @@ class UnifiedMARLEnv:
             else -1
         )
         info["debug_heartbeat_age"] = self._tracker.ages()
+        info["debug_message_intent_labels"] = self._message_intent_labels()
         return info
+
+    def _message_intent_labels(self) -> np.ndarray:
+        provider = getattr(self.adapter, "message_intent_labels", None)
+        if provider is None:
+            return np.full(self._n_agents, -1, dtype=np.int64)
+        try:
+            return np.asarray(
+                provider(n_msg_tokens=self.n_msg_tokens, alive=self._alive),
+                dtype=np.int64,
+            )
+        except Exception:
+            # Intent labels are an optional diagnostic signal; never let them
+            # break normal environment stepping.
+            return np.full(self._n_agents, -1, dtype=np.int64)
 
 
 # ---------------------------------------------------------------------------
