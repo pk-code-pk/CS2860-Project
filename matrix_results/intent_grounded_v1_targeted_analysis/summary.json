@@ -1,0 +1,362 @@
+{
+  "aggregate": [
+    {
+      "method": "mappo-no-comm",
+      "n": 8,
+      "last5_eval_mean": 0.3916666666666667,
+      "last5_eval_sd": 0.5250185181919248,
+      "final_eval_mean": 1.0104166666666667,
+      "final_eval_sd": 1.7208326127059486,
+      "msg_acc_mean": 0.0,
+      "msg_acc_sd": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "n": 8,
+      "last5_eval_mean": 3.2154166666666666,
+      "last5_eval_sd": 2.4119023233664163,
+      "final_eval_mean": 5.90625,
+      "final_eval_sd": 5.986419402439555,
+      "msg_acc_mean": 0.0,
+      "msg_acc_sd": 0.0
+    },
+    {
+      "method": "mappo-intent-aux",
+      "n": 8,
+      "last5_eval_mean": 7.2975,
+      "last5_eval_sd": 4.932907237068604,
+      "final_eval_mean": 7.360416666666667,
+      "final_eval_sd": 5.429299828429457,
+      "msg_acc_mean": 0.5681108599499566,
+      "msg_acc_sd": 0.04351944466812918
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison": "mappo-comm - mappo-no-comm",
+      "n": 8,
+      "common_seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "mean_diff": 2.82375,
+      "sd_diff": 2.138588347262656,
+      "diffs": [
+        5.789999999999999,
+        -0.23666666666666664,
+        2.15,
+        5.746666666666667,
+        3.363333333333333,
+        0.9733333333333332,
+        1.7766666666666666,
+        3.0266666666666673
+      ],
+      "paired_t_two_sided_p": 0.007314419965651633,
+      "paired_t_greater_p": 0.0036572099828258166,
+      "wilcoxon_two_sided_p": 0.015625,
+      "wilcoxon_greater_p": 0.0078125
+    },
+    {
+      "comparison": "mappo-intent-aux - mappo-no-comm",
+      "n": 8,
+      "common_seeds": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "mean_diff": 6.905833333333334,
+      "sd_diff": 5.1275080583933645,
+      "diffs": [
+        0.7299999999999998,
+        8.036666666666667,
+        0.21000000000000002,
+        5.783333333333333,
+        15.48,
+        9.213333333333333,
+        10.873333333333333,
+        4.92
+      ],
+      "paired_t_two_sided_p": 0.006633225438993216,
+      "paired_t_greater_p": 0.003316612719496608,
+      "wilcoxon_two_sided_p": 0.0078125,
+      "wilcoxon_greater_p": 0.00390625
+    }
+  ],
+  "per_run": [
+    {
+      "method": "mappo-no-comm",
+      "seed": 0,
+      "run": "mappo-no-comm__dropout-only__d0__s0",
+      "rows": 1000,
+      "last5_eval_return": 1.4766666666666668,
+      "final_eval_return": 5.166666666666667,
+      "last50_train_return": 23.55,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 1,
+      "run": "mappo-no-comm__dropout-only__d0__s1",
+      "rows": 1000,
+      "last5_eval_return": 0.27999999999999997,
+      "final_eval_return": 0.65,
+      "last50_train_return": 2.41,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 2,
+      "run": "mappo-no-comm__dropout-only__d0__s2",
+      "rows": 1000,
+      "last5_eval_return": 0.0,
+      "final_eval_return": 0.0,
+      "last50_train_return": 0.0,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 3,
+      "run": "mappo-no-comm__dropout-only__d0__s3",
+      "rows": 1000,
+      "last5_eval_return": 0.0,
+      "final_eval_return": 0.0,
+      "last50_train_return": 0.0,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 4,
+      "run": "mappo-no-comm__dropout-only__d0__s4",
+      "rows": 1000,
+      "last5_eval_return": 0.2533333333333333,
+      "final_eval_return": 0.65,
+      "last50_train_return": 8.75,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 5,
+      "run": "mappo-no-comm__dropout-only__d0__s5",
+      "rows": 1000,
+      "last5_eval_return": 0.24333333333333335,
+      "final_eval_return": 0.65,
+      "last50_train_return": 0.78,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 6,
+      "run": "mappo-no-comm__dropout-only__d0__s6",
+      "rows": 1000,
+      "last5_eval_return": 0.0,
+      "final_eval_return": 0.0,
+      "last50_train_return": 0.27,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-no-comm",
+      "seed": 7,
+      "run": "mappo-no-comm__dropout-only__d0__s7",
+      "rows": 1000,
+      "last5_eval_return": 0.8800000000000001,
+      "final_eval_return": 0.9666666666666667,
+      "last50_train_return": 44.99,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 0,
+      "run": "mappo-comm__dropout-only__d0__s0",
+      "rows": 1000,
+      "last5_eval_return": 7.266666666666666,
+      "final_eval_return": 17.633333333333333,
+      "last50_train_return": 21.26,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 1,
+      "run": "mappo-comm__dropout-only__d0__s1",
+      "rows": 1000,
+      "last5_eval_return": 0.043333333333333335,
+      "final_eval_return": 0.0,
+      "last50_train_return": 0.28,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 2,
+      "run": "mappo-comm__dropout-only__d0__s2",
+      "rows": 1000,
+      "last5_eval_return": 2.15,
+      "final_eval_return": 0.8,
+      "last50_train_return": 36.1,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 3,
+      "run": "mappo-comm__dropout-only__d0__s3",
+      "rows": 1000,
+      "last5_eval_return": 5.746666666666667,
+      "final_eval_return": 9.933333333333334,
+      "last50_train_return": 29.39,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 4,
+      "run": "mappo-comm__dropout-only__d0__s4",
+      "rows": 1000,
+      "last5_eval_return": 3.6166666666666663,
+      "final_eval_return": 4.933333333333334,
+      "last50_train_return": 10.39,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 5,
+      "run": "mappo-comm__dropout-only__d0__s5",
+      "rows": 1000,
+      "last5_eval_return": 1.2166666666666666,
+      "final_eval_return": 0.65,
+      "last50_train_return": 2.18,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 6,
+      "run": "mappo-comm__dropout-only__d0__s6",
+      "rows": 1000,
+      "last5_eval_return": 1.7766666666666666,
+      "final_eval_return": 8.45,
+      "last50_train_return": 1.77,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-comm",
+      "seed": 7,
+      "run": "mappo-comm__dropout-only__d0__s7",
+      "rows": 1000,
+      "last5_eval_return": 3.906666666666667,
+      "final_eval_return": 4.85,
+      "last50_train_return": 19.76,
+      "last50_msg_grounding_acc": 0.0,
+      "last50_msg_grounding_loss": 0.0
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 0,
+      "run": "mappo-intent-aux__dropout-only__d0__s0",
+      "rows": 1000,
+      "last5_eval_return": 2.2066666666666666,
+      "final_eval_return": 5.333333333333333,
+      "last50_train_return": 37.64,
+      "last50_msg_grounding_acc": 0.5695185100100935,
+      "last50_msg_grounding_loss": 0.906152460873127
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 1,
+      "run": "mappo-intent-aux__dropout-only__d0__s1",
+      "rows": 1000,
+      "last5_eval_return": 8.316666666666666,
+      "final_eval_return": 9.7,
+      "last50_train_return": 34.84,
+      "last50_msg_grounding_acc": 0.5489177862554788,
+      "last50_msg_grounding_loss": 0.9371063262037933
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 2,
+      "run": "mappo-intent-aux__dropout-only__d0__s2",
+      "rows": 1000,
+      "last5_eval_return": 0.21000000000000002,
+      "final_eval_return": 0.8333333333333334,
+      "last50_train_return": 20.76,
+      "last50_msg_grounding_acc": 0.6014579782821238,
+      "last50_msg_grounding_loss": 0.8117276352271438
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 3,
+      "run": "mappo-intent-aux__dropout-only__d0__s3",
+      "rows": 1000,
+      "last5_eval_return": 5.783333333333333,
+      "final_eval_return": 1.1,
+      "last50_train_return": 36.35,
+      "last50_msg_grounding_acc": 0.608166573382914,
+      "last50_msg_grounding_loss": 0.8497397754155099
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 4,
+      "run": "mappo-intent-aux__dropout-only__d0__s4",
+      "rows": 1000,
+      "last5_eval_return": 15.733333333333334,
+      "final_eval_return": 17.35,
+      "last50_train_return": 74.83,
+      "last50_msg_grounding_acc": 0.5813372134789825,
+      "last50_msg_grounding_loss": 0.9213116046600044
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 5,
+      "run": "mappo-intent-aux__dropout-only__d0__s5",
+      "rows": 1000,
+      "last5_eval_return": 9.456666666666667,
+      "final_eval_return": 9.6,
+      "last50_train_return": 50.42,
+      "last50_msg_grounding_acc": 0.497115726666525,
+      "last50_msg_grounding_loss": 1.0118683367595076
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 6,
+      "run": "mappo-intent-aux__dropout-only__d0__s6",
+      "rows": 1000,
+      "last5_eval_return": 10.873333333333333,
+      "final_eval_return": 9.733333333333333,
+      "last50_train_return": 29.53,
+      "last50_msg_grounding_acc": 0.6189519395399838,
+      "last50_msg_grounding_loss": 0.8077560177166014
+    },
+    {
+      "method": "mappo-intent-aux",
+      "seed": 7,
+      "run": "mappo-intent-aux__dropout-only__d0__s7",
+      "rows": 1000,
+      "last5_eval_return": 5.8,
+      "final_eval_return": 5.233333333333333,
+      "last50_train_return": 44.89,
+      "last50_msg_grounding_acc": 0.5194211519835517,
+      "last50_msg_grounding_loss": 1.0137418842501937
+    }
+  ]
+}
