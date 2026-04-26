@@ -825,7 +825,77 @@ Beyond the trivial typos, the substantive bug fixes in commit history:
 
 201 LOC of convenience wrappers and registry helpers for the supported environments. Imports `rware` and `multigrid` to register their gym env IDs at module load time, and exposes a small set of `env_id` constants we use across the codebase. Mostly used by smoke tests and the demo script.
 
-### 9.10 What is *not* in the code yet
+## 10. Targeted request-intent dropout result
+
+After the broader random/fixed dropout sweeps produced weak communication
+effects, we added a targeted dropout diagnostic to test the mechanism directly:
+does communication help when the failed teammate was doing request-relevant
+work?
+
+The targeted run uses `rware-medium-2ag-easy-v2`, 2 agents, seeds `0-7`,
+1000 MAPPO updates, shaped requested-shelf pickup reward, no heartbeat, and
+message echo enabled. Dropout fires at episode step 25. Instead of dropping a
+fixed or uniformly random agent, the wrapper selects the live agent most tied to
+current requested work: first an agent carrying a requested shelf, otherwise an
+agent assigned to a request slot by the intent-label heuristic, otherwise the
+live agent closest to any requested shelf. The failure is permanent, and the
+dead agent echoes its last live one-hot message rather than emitting an all-zero
+death oracle.
+
+Primary metric: per-seed mean of the final 5 evaluation returns.
+
+| Method | Mean | SD | Bootstrap 95% CI |
+|---|---:|---:|---:|
+| `mappo-no-comm` | 0.39 | 0.53 | [0.10, 0.76] |
+| `mappo-comm` | 3.22 | 2.41 | [1.74, 4.84] |
+| `mappo-intent-aux` | 7.30 | 4.93 | [4.16, 10.52] |
+
+Matched-seed tests against no communication:
+
+| Comparison | Mean diff | Cohen dz | Paired t p | Wilcoxon p |
+|---|---:|---:|---:|---:|
+| `mappo-comm - mappo-no-comm` | +2.82 | 1.32 | 0.0073 | 0.0156 |
+| `mappo-intent-aux - mappo-no-comm` | +6.91 | 1.35 | 0.0066 | 0.0078 |
+
+Per-seed wins are also favorable: plain learned communication beats no
+communication on 7 of 8 seeds, and intent-grounded communication beats no
+communication on all 8 seeds. Intent-grounded communication has the highest
+mean and beats plain learned communication on 5 of 8 seeds, but the
+intent-vs-plain comparison is not yet significant at n=8 (`p=0.103`, paired
+t-test), so it should be framed as suggestive unless replicated.
+
+The paper-safe claim is now:
+
+> Under targeted request-relevant teammate dropout, learned communication
+> significantly improves MAPPO recovery over no communication; intent-grounded
+> communication produces the strongest average recovery.
+
+This is stronger than a generic "communication helps" claim because it explains
+when communication matters. Earlier random/fixed dropout results become useful
+contrast: communication is not automatically beneficial under arbitrary
+failures, but it becomes valuable when failure creates abandoned-task ambiguity
+that the surviving agent cannot infer from local observation alone.
+
+Paper-ready artifacts live in
+`matrix_results/intent_grounded_v1_targeted_analysis/`:
+
+- `PAPER_ANALYSIS.md`: full writeup with paper-safe claims, limitations,
+  per-seed outcomes, effect sizes, and recommended figure set.
+- `figures/targeted_last5_eval_bar.png`: main performance figure.
+- `figures/targeted_paired_differences.png`: matched-seed gain figure.
+- `figures/targeted_eval_learning_curves.png`: training dynamics.
+- `figures/targeted_message_grounding_accuracy.png`: auxiliary grounding
+  diagnostic.
+- `paper_stats_aggregate.csv`, `paper_stats_comparisons.csv`, and
+  `paper_per_seed_table.csv`: tables for paper appendix/stat verification.
+
+The best next robustness check is randomized targeted dropout: sample from the
+set of task-relevant candidate agents rather than always dropping the top-ranked
+candidate. If the communication effect survives that variant, the paper can
+argue the result is not an artifact of always killing the maximally important
+agent.
+
+### 10.1 What is *not* in the code yet
 
 For full transparency about the gap between this report and the next milestone:
 
@@ -839,4 +909,4 @@ These are all on the `feature/dial-grounded-comm` branch's TODO list.
 
 ---
 
-*End of progress report. Next update: after DIAL smoke test results land in `matrix_results/dial_smoke_v1_pooled/`.*
+*End of progress report. Next update: after randomized targeted-dropout robustness results land.*
