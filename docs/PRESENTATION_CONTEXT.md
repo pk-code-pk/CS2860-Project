@@ -40,6 +40,24 @@ approaches under teammate failures:
 - Heuristic baselines.
 - Later, intent-grounded communication.
 
+The original algorithmic inspiration was:
+
+> Ghavamzadeh, Mahadevan, and Makar, "Hierarchical Multi-Agent Reinforcement
+> Learning."
+
+In our codebase this appears as a paper-faithful **Cooperative-HRL /
+COM-Cooperative-HRL** baseline under `policies/hierarchical/`. That baseline
+implements a two-level hierarchy, cooperative subtasks, SMDP Q-learning at the
+cooperative level, shared team-level assignment state, and a communication
+variant where agents broadcast selected subtasks at cooperative boundaries.
+
+The final paper direction evolved from that starting point. Rather than making
+HRL the central result, the strongest empirical story became a narrower and
+cleaner mechanism question: **when does communication help under teammate
+dropout?** The HRL paper remains important as the original structured
+coordination inspiration, but the final evidence is best framed around MAPPO
+communication semantics under controlled dropout.
+
 Early expectations were that communication would naturally improve robustness
 when an agent disappeared. The first results were not clean. Communication did
 not consistently beat no communication under random or fixed dropout. This
@@ -157,7 +175,8 @@ from heartbeat.
 ### HRL
 
 The project also implemented a hierarchical RL baseline inspired by
-Cooperative HRL / COM-Cooperative HRL:
+Ghavamzadeh, Mahadevan, and Makar's "Hierarchical Multi-Agent Reinforcement
+Learning," specifically the Cooperative-HRL / COM-Cooperative-HRL framing:
 
 - High-level subtasks.
 - Low-level executors.
