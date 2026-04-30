@@ -1,0 +1,21 @@
+Diagnosis report for: matrix_results/smoke_small_v1_pooled
+delay analyzed: d=30  |  runs=16
+
+Core contrasts (eval):
+- hb-only dropout minus delay-only: -5.24
+- comm benefit in delay-only: -4.28
+- comm benefit in delay-dropout: -14.95
+- interaction (dd - do): -10.67
+
+Grounding proxy (entropy decomposition):
+- estimated msg entropy ratio: delay-only=0.799, delay-dropout=0.878 (closer to 1.0 => near-uniform messages)
+
+Stability:
+- train CV (last-200 updates): hb-only=0.372, hb+comm=0.442
+- collapse-like fraction: hb-only=0.013, hb+comm=0.044
+
+Likely issues (ranked):
+1. [high] ungrounded_message_channel: estimated message entropy ratio under delay-dropout = 0.878 (1.0 means near-uniform random) | Comm symbols appear weakly grounded; the sender likely emits high-entropy tokens.
+2. [high] missing_dropout_specific_comm_gain: interaction (comm benefit dd - comm benefit do) = -10.67 [do=-4.28, dd=-14.95] | Communication is not providing the hypothesized dropout-specific rescue effect.
+
+Note: this is diagnostic evidence, not strict causal proof.

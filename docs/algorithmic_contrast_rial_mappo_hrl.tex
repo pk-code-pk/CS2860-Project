@@ -1,0 +1,66 @@
+% Standalone snippet: compile with pdflatex (requires amsmath, amssymb, algorithm, algpseudocode)
+% Or \input{} the "Core contrast" block into your paper preamble.
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[margin=1in]{geometry}
+\begin{document}
+
+\section*{Algorithmic contrast (vanilla RIAL vs.\ MAPPO+comm vs.\ HRL)}
+
+\paragraph{Notation.}
+Agents $i=1,\ldots,N$; own observation $o^i_t$; environment action $a^i_t$; discrete
+message $m^i_t \in \{0,\ldots,K-1\}$; joint action $\tau_t = (a^1_t,m^1_t,\ldots,a^N_t,m^N_t)$;
+full state $s_t$ (for the critic); optional intent labels $y^i_t$ from the simulator heuristic.
+
+\subsection*{Vanilla RIAL (reinforced inter-agent learning, typical form)}
+Decentralized actors with a communication head; learning signal is a \emph{policy-gradient}
+objective (REINFORCE / advantage actor--critic) on the \emph{joint} discrete choice
+$(a^i,m^i)$, without requiring MAPPO's clipped surrogate or a central value baseline:
+\[
+J(\theta) \;=\; \mathbb{E}\Big[\sum_t \gamma^t\, r_t\Big],\qquad
+\nabla_\theta J
+\;=\;
+\mathbb{E}\Big[\sum_i \nabla_\theta \log \pi_\theta\!\big(a^i_t, m^i_t \mid o^i_t\big)\,
+\hat A_t\Big].
+\]
+(Implementation details, baseline architecture, and environment vary by paper; the core is
+\emph{discrete} $m$ learned by RL, not a differentiable comm channel like DIAL.)
+
+\subsection*{Ours: MAPPO with RIAL-style discrete messages (+ optional intent auxiliary)}
+\emph{Flat} shared policy with two heads per agent, \emph{central} critic, PPO on the
+joint log-prob of $(a^i,m^i)$, and (optional) supervised grounding on the message logits:
+\[
+L \;=\;
+L_{\mathrm{PPO}}(\theta,\psi)
+\;+\;
+\lambda\,\frac{1}{|{\cal V}|} \sum_{(i,t)\in{\cal V}}
+\ell_{\mathrm{CE}}\!\Big(f_\theta(o^i_t;\ldots),\, y^i_t\Big),
+\]
+where ${\cal V}$ are alive $(i,t)$ with valid labels, and $\lambda\!=\!0$ recovers
+\emph{unconstrained} RIAL-style comm under MAPPO. The environment / wrapper may apply
+teammate dropout, message echo for dead roles, and (in other sweeps) delayed heartbeats
+--- these are \emph{not} part of vanilla RIAL's default problem.
+
+\subsection*{HRL (hierarchical RL; orthogonal axis)}
+A two-level (or more) policy introduces latent decisions $z^i_t$ (option / subgoal /
+manager output) and a low-level policy over primitive actions, e.g.\
+$\pi(a^i_t\mid o^i_t, z^i_t)$, $\varpi(z^i_t\mid o^i_t)$, rather than a single
+flat $(a^i,m^i)$ split. Communication, if any, is not defined by the HRL property itself;
+our work uses \textbf{no} learned options layer.
+
+\bigskip
+\begin{algorithm}[h]
+\caption{Training step (Ours) --- sketch}
+\begin{algorithmic}[1]
+\State Roll out trajectories in wrapped RWARE: observe dropout / echo / (optional) heartbeat
+\State For each PPO epoch: compute advantages $\hat A_t$ with central $V_\psi(s_t)$
+\State Minimize
+  $L_{\mathrm{PPO}}(\pi_\theta, V_\psi)
+   + \lambda \cdot L_{\mathrm{ground}}(\text{msg-logits}, y)$ \hfill (optional, $\lambda{=}0$ is plain comm)
+\State (MAPPO) apply clipped surrogate to \textbf{sum} of env + msg log-prob ratios per team step
+\end{algorithmic}
+\end{algorithm}
+
+\end{document}

@@ -1,0 +1,46 @@
+{
+  "log_dir": "matrix_results/smoke_small_v1_pooled",
+  "delay": 30,
+  "n_runs": 16,
+  "methods_detected": [
+    "mappo-heartbeat-only",
+    "mappo-heartbeat-plus-comm"
+  ],
+  "regimes_detected": [
+    "delay-dropout",
+    "delay-only"
+  ],
+  "core_metrics": {
+    "hb_dropout_minus_delay_eval": -5.237083333333338,
+    "comm_benefit_delay_only_eval": -4.27791666666667,
+    "comm_benefit_delay_dropout_eval": -14.952083333333334,
+    "interaction_eval": -10.674166666666665,
+    "action_entropy_delay_only": 0.7396805789042264,
+    "action_entropy_delay_dropout": 0.598924851991469,
+    "total_comm_entropy_delay_only": 2.4014875425770876,
+    "total_comm_entropy_delay_dropout": 2.425306838545948,
+    "estimated_msg_entropy_delay_only": 1.6618069636728612,
+    "estimated_msg_entropy_delay_dropout": 1.826381986554479,
+    "estimated_msg_entropy_ratio_delay_only": 0.799160221801861,
+    "estimated_msg_entropy_ratio_delay_dropout": 0.8783040782570268,
+    "hb_only_train_cv": 0.37226909540306263,
+    "hb_plus_comm_train_cv": 0.4424572729632237,
+    "hb_only_collapse_frac": 0.013125,
+    "hb_plus_comm_collapse_frac": 0.04375,
+    "n_msg_tokens_effective": 8
+  },
+  "likely_issues": [
+    {
+      "issue": "ungrounded_message_channel",
+      "severity": "high",
+      "evidence": "estimated message entropy ratio under delay-dropout = 0.878 (1.0 means near-uniform random)",
+      "interpretation": "Comm symbols appear weakly grounded; the sender likely emits high-entropy tokens."
+    },
+    {
+      "issue": "missing_dropout_specific_comm_gain",
+      "severity": "high",
+      "evidence": "interaction (comm benefit dd - comm benefit do) = -10.67 [do=-4.28, dd=-14.95]",
+      "interpretation": "Communication is not providing the hypothesized dropout-specific rescue effect."
+    }
+  ]
+}

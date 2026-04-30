@@ -1,0 +1,93 @@
+==================== matrix_results/exp_pilot_v4_pooled ====================
+Diagnosis report for: matrix_results/exp_pilot_v4_pooled
+delay analyzed: d=30  |  runs=24
+
+Core contrasts (eval):
+- hb-only dropout minus delay-only: 11.44
+- comm benefit in delay-only: -0.25
+- comm benefit in delay-dropout: -13.04
+- interaction (dd - do): -12.79
+
+Grounding proxy (entropy decomposition):
+- estimated msg entropy ratio: delay-only=0.861, delay-dropout=0.808 (closer to 1.0 => near-uniform messages)
+
+Stability:
+- train CV (last-200 updates): hb-only=0.272, hb+comm=0.276
+- collapse-like fraction: hb-only=0.000, hb+comm=0.003
+
+Likely issues (ranked):
+1. [high] ungrounded_message_channel: estimated message entropy ratio under delay-dropout = 0.808 (1.0 means near-uniform random) | Comm symbols appear weakly grounded; the sender likely emits high-entropy tokens.
+2. [high] missing_dropout_specific_comm_gain: interaction (comm benefit dd - comm benefit do) = -12.79 [do=-0.25, dd=-13.04] | Communication is not providing the hypothesized dropout-specific rescue effect.
+
+Note: this is diagnostic evidence, not strict causal proof.
+
+==================== matrix_results/overnight_v1_pooled ====================
+
+==================== matrix_results/smoke_small_v1_pooled ====================
+Diagnosis report for: matrix_results/smoke_small_v1_pooled
+delay analyzed: d=30  |  runs=16
+
+Core contrasts (eval):
+- hb-only dropout minus delay-only: -5.24
+- comm benefit in delay-only: -4.28
+- comm benefit in delay-dropout: -14.95
+- interaction (dd - do): -10.67
+
+Grounding proxy (entropy decomposition):
+- estimated msg entropy ratio: delay-only=0.799, delay-dropout=0.878 (closer to 1.0 => near-uniform messages)
+
+Stability:
+- train CV (last-200 updates): hb-only=0.372, hb+comm=0.442
+- collapse-like fraction: hb-only=0.013, hb+comm=0.044
+
+Likely issues (ranked):
+1. [high] ungrounded_message_channel: estimated message entropy ratio under delay-dropout = 0.878 (1.0 means near-uniform random) | Comm symbols appear weakly grounded; the sender likely emits high-entropy tokens.
+2. [high] missing_dropout_specific_comm_gain: interaction (comm benefit dd - comm benefit do) = -10.67 [do=-4.28, dd=-14.95] | Communication is not providing the hypothesized dropout-specific rescue effect.
+
+Note: this is diagnostic evidence, not strict causal proof.
+
+==================== matrix_results/diagnostics_v1_sam/death_token/tiny_normal ====================
+Diagnosis report for: matrix_results/diagnostics_v1_sam/death_token/tiny_normal
+delay analyzed: d=30  |  runs=16
+
+Core contrasts (eval):
+- hb-only dropout minus delay-only: -7.90
+- comm benefit in delay-only: -5.48
+- comm benefit in delay-dropout: -4.30
+- interaction (dd - do): 1.18
+
+Grounding proxy (entropy decomposition):
+- estimated msg entropy ratio: delay-only=0.763, delay-dropout=0.923 (closer to 1.0 => near-uniform messages)
+
+Stability:
+- train CV (last-200 updates): hb-only=0.804, hb+comm=1.002
+- collapse-like fraction: hb-only=0.251, hb+comm=0.338
+
+Likely issues (ranked):
+1. [high] ungrounded_message_channel: estimated message entropy ratio under delay-dropout = 0.923 (1.0 means near-uniform random) | Comm symbols appear weakly grounded; the sender likely emits high-entropy tokens.
+2. [medium] comm_training_instability: train CV last-200 updates: hb-only=0.804 vs hb+comm=1.002 | Adding comm increases policy oscillation and can mask any small benefit.
+
+Note: this is diagnostic evidence, not strict causal proof.
+
+==================== matrix_results/diagnostics_v1_sam/death_token/tiny_oracle ====================
+Diagnosis report for: matrix_results/diagnostics_v1_sam/death_token/tiny_oracle
+delay analyzed: d=30  |  runs=8
+
+Core contrasts (eval):
+- hb-only dropout minus delay-only: n/a
+- comm benefit in delay-only: n/a
+- comm benefit in delay-dropout: n/a
+- interaction (dd - do): n/a
+
+Grounding proxy (entropy decomposition):
+- estimated msg entropy ratio: delay-only=n/a, delay-dropout=n/a (closer to 1.0 => near-uniform messages)
+
+Stability:
+- train CV (last-200 updates): hb-only=n/a, hb+comm=0.993
+- collapse-like fraction: hb-only=n/a, hb+comm=0.338
+
+Likely issues (ranked):
+1. [high] weak_dropout_headroom: hb-only dropout minus delay-only eval = n/a | Dropout barely changes baseline eval, so maximum possible communication rescue is small.
+
+Note: this is diagnostic evidence, not strict causal proof.
+
