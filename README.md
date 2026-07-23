@@ -4,6 +4,13 @@
 
 Can learned inter-agent communication help cooperative agents cope with teammate dropout when liveness signals are delayed? We extend MAPPO on the Robotic Warehouse (RWARE) environment with heartbeat delay, mid-episode dropout, and a discrete communication channel inspired by RIAL.
 
+<p align="center">
+  <img src="docs/demo.gif" alt="Trained MAPPO agents in RWARE tiny-4ag with mid-episode teammate dropout" width="360">
+</p>
+<p align="center">
+  <em>Trained MAPPO policy on <code>rware-tiny-4ag-v2</code>. Orange = agent, red = agent carrying a shelf, teal = requested shelf, <code>G</code> = delivery goal. Agent&nbsp;0 drops out mid-episode; the remaining team keeps delivering.</em>
+</p>
+
 ---
 
 ## Headline Results
