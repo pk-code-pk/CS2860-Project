@@ -73,6 +73,7 @@ def main() -> None:
 
     state = env.reset(seed=args.seed)
     frames: list[Image.Image] = []
+    prev_bytes: bytes | None = None
 
     for t in range(args.max_steps):
         joint, _ = act(state)
@@ -87,7 +88,12 @@ def main() -> None:
                         (int(w * args.scale), int(h * args.scale)),
                         Image.LANCZOS,
                     )
-                frames.append(img.convert("P", palette=Image.ADAPTIVE))
+                # Drop frames identical to the previous one so the loop keeps
+                # moving instead of freezing on static stretches.
+                cur_bytes = img.tobytes()
+                if cur_bytes != prev_bytes:
+                    frames.append(img.convert("P", palette=Image.ADAPTIVE))
+                    prev_bytes = cur_bytes
         state = out
         if out["done"]:
             break
