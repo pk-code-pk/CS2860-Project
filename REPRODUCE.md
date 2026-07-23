@@ -1,6 +1,6 @@
 # How to Reproduce Our Results
 
-**Authors:** Sam Chen, Praneel Khiantani  
+**Authors:** Praneel Khiantani, Sam Chen  
 **Course:** CS 2860, Harvard University, Spring 2026
 
 ---

@@ -1,6 +1,6 @@
 # CS 2860 — Learned Communication Under Teammate Dropout in Cooperative MARL
 
-**Authors:** Sam Chen, Praneel Khiantani | Harvard University, Spring 2026
+**Authors:** Praneel Khiantani, Sam Chen | Harvard University, Spring 2026
 
 Can learned inter-agent communication help cooperative agents cope with teammate dropout when liveness signals are delayed? We extend MAPPO on the Robotic Warehouse (RWARE) environment with heartbeat delay, mid-episode dropout, and a discrete communication channel inspired by RIAL.
 
