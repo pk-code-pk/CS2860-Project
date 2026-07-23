@@ -23,6 +23,23 @@ Can learned inter-agent communication help cooperative agents cope with teammate
 
 ---
 
+## 📄 Paper
+
+**[Read the full paper (PDF)](docs/final_paper.pdf)** — *Learned Communication Under Heartbeat Delay and Teammate Dropout in Cooperative Multi-Agent Reinforcement Learning*
+
+<p align="center">
+  <a href="docs/final_paper.pdf">
+    <img src="docs/paper_results.png" alt="GComm-MAPPO results under targeted dropout" width="440">
+  </a>
+</p>
+<p align="center">
+  <em>GComm-MAPPO (intent-grounded messages) vs. baselines under targeted request-intent dropout. Full details, methods, and statistics in the <a href="docs/final_paper.pdf">paper</a>.</em>
+</p>
+
+LaTeX source: [`final_paper.zip`](final_paper.zip) (`final_paper/main.tex`).
+
+---
+
 ## Setup
 
 ```bash
